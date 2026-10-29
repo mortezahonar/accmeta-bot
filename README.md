@@ -30,7 +30,7 @@ Worker فقط update را موقتاً در KV مستقل ذخیره می‌کن
 
 برای اجرای end-to-end این secrets در مخزن `mortezahonar/accmeta-bot` لازم است:
 
-- `ACCMETA_BOT_TOKEN`: توکن اختصاصی `@mashaghel_karaj_bot`.
+- `ACCMETA_BOT_TOKEN`: توکن اختصاصی `@Accmeta_bot`.
 - `ACCMETA_CHAT_ID`: شناسهٔ عددی گروه مقصد.
 - `GEMINI_API_KEY`: کلید Gemini.
 - `FALLBACK_API_KEY`: کلید fallback در TokenHarbor؛ اختیاری است، اما برای حفظ fallback JCM توصیه می‌شود.
