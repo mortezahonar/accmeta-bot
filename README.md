@@ -1,6 +1,6 @@
 # accmeta-bot
 
-ربات ترجمهٔ مقاله‌های عمومی انگلیسی حسابداری و حسابرسی به فارسی؛ پیاده‌سازی‌شده با همان جریان عملیاتی `mortezahonar/jcm-bot` و Worker مستقل `accmeta-hook`.
+ربات ترجمهٔ مقاله‌های تخصصی انگلیسی حسابداری و حسابرسی به فارسی؛ پیاده‌سازی‌شده با همان جریان عملیاتی Worker مستقل `accmeta-hook`.
 
 ## رفتار ربات
 
@@ -23,7 +23,8 @@ Worker فقط update را موقتاً در KV مستقل ذخیره می‌کن
 
 ## مدل‌ها
 
-نام مدل‌ها و providerها همان defaults عمومی JCM هستند: Gemini `gemini-3.5-flash,gemini-3.1-flash-lite` و fallback سازگار با OpenAI در `https://tokenharbor.ai/v1` با مدل `deepseek-v4.1-flash:free`. secretهای API از JCM خوانده یا کپی نمی‌شوند؛ مخزن هدف credentialهای مستقل خودش را از GitHub Actions secrets دریافت می‌کند.
+نام مدل‌ها و providerها همان defaults عمومی JCM هستند: Gemini `gemini-3.5-flash,gemini-3.1-flash-lite` و fallback سازگار با OpenAI در `https://tokenharbor.ai/v1` با مدل `deepseek-v4.1-flash:free`. secretهای API 
+؛ مخزن هدف credentialهای مستقل خودش را از GitHub Actions secrets دریافت می‌کند.
 
 ## GitHub Actions secrets
 
