@@ -23,6 +23,10 @@ on:
         description: "Explicitly replace the current Telegram webhook with accmeta-hook"
         type: boolean
         default: false
+      register_commands:
+        description: "Register /start in the Telegram command menu"
+        type: boolean
+        default: false
 
   schedule:
     - cron: '17 * * * *'
@@ -61,6 +65,9 @@ jobs:
       - name: Chat ID diagnostic regression test
         run: php tests/ChatIdDiagnosticTest.php
 
+      - name: Start command regression test
+        run: php tests/StartCommandTest.php
+
       - name: RTL direction regression test
         run: php tests/PersianRtlTest.php
 
@@ -75,6 +82,23 @@ jobs:
           php tests/TranslationLinkPreservationTest.php
           php tests/TranslationPromptFilterTest.php
           php tests/TranslationTermsTest.php
+
+      - name: Register Telegram /start command
+        if: github.event_name == 'workflow_dispatch' && inputs.register_commands
+        env:
+          ACCMETA_BOT_TOKEN: ${{ secrets.ACCMETA_BOT_TOKEN }}
+        run: |
+          current=$(curl -sS --fail --max-time 30 \
+            "https://api.telegram.org/bot${ACCMETA_BOT_TOKEN}/getMyCommands")
+          printf '%s' "$current" | jq -e '.ok == true' >/dev/null
+          commands=$(printf '%s' "$current" | jq -c \
+            '[.result[]? | select(.command != "start")] + [{"command":"start","description":"شروع و راهنمای ربات"}]')
+          payload=$(jq -cn --argjson commands "$commands" '{commands:$commands}')
+          response=$(curl -sS --fail --max-time 30 -X POST \
+            "https://api.telegram.org/bot${ACCMETA_BOT_TOKEN}/setMyCommands" \
+            -H 'Content-Type: application/json' -d "$payload")
+          printf '%s' "$response" | jq -e '.ok == true' >/dev/null
+          echo "Telegram /start command registered; existing commands preserved."
 
       - name: Gemini key check
         if: github.event_name == 'workflow_dispatch' && inputs.test_key

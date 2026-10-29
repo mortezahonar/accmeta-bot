@@ -17,6 +17,7 @@ require __DIR__ . '/src/ArticleSource.php';
 require __DIR__ . '/src/InternationalArticleParser.php';
 require __DIR__ . '/src/InternationalSource.php';
 require __DIR__ . '/src/ChatIdDiagnostic.php';
+require __DIR__ . '/src/StartCommand.php';
 require __DIR__ . '/src/ArticleSourceRegistry.php';
 require __DIR__ . '/src/ArticleService.php';
 
@@ -231,6 +232,26 @@ function handleUpdate(array $update): void
     // This bot serves exactly one group. Anything arriving from elsewhere is
     // dropped here, before it can reach Telegram.
     $sourceChat = (string) ($update['message']['chat']['id'] ?? $update['callback_query']['message']['chat']['id'] ?? '');
+
+    if (isset($update['message']['text']) && StartCommand::matches((string) $update['message']['text'])) {
+        $startUserId = (int) ($update['message']['from']['id'] ?? 0);
+
+        if (!$isAllowed($startUserId)) {
+            $log('start command from a user not in the allowlist');
+
+            return;
+        }
+
+        if ($sourceChat === $chatId) {
+            $telegram->sendMessage($chatId, menuText(), null, menuKeyboard());
+            $log('start command: group menu shown');
+        } elseif (($update['message']['chat']['type'] ?? '') === 'private' && $sourceChat !== '') {
+            $telegram->sendMessage($sourceChat, Persian::rtl(StartCommand::privateReply()));
+            $log('start command: private help shown');
+        }
+
+        return;
+    }
 
     if ($sourceChat !== $chatId) {
         $log('ignored: update from a different chat');
