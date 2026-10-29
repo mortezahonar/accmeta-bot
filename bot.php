@@ -382,11 +382,11 @@ function offerTopic(string $link): void
 
     if ($slug === '') {
         $telegram->sendMessage($chatId, Persian::rtl(
-            'این لینک، مقالهٔ تخصصی حسابداری یا حسابرسی از منابع پشتیبانی‌شده نیست. لینک مقالهٔ تخصصی از یکی از این منابع را بفرست:'
-            . "\n" . 'https://www.journalofaccountancy.com/news/...'
-            . "\n" . 'https://www.ifrs.org/news-and-events/news/.../'
-            . "\n" . 'https://www.iaasb.org/news-events/...'
-            . "\n" . 'https://intheblack.cpaaustralia.com.au/category/article-slug'
+            'این لینک، صفحهٔ یک مقالهٔ تخصصی حسابداری یا حسابرسی از منابع پشتیبانی‌شده نیست. از فهرست‌های رسمی زیر مقاله را انتخاب کن و لینک خود مقاله را بفرست؛ خود صفحهٔ فهرست قابل ترجمه نیست:'
+            . "\n" . 'خبرهای Journal of Accountancy:' . "\n" . 'https://www.journalofaccountancy.com/news/'
+            . "\n" . 'خبرهای بنیاد IFRS:' . "\n" . 'https://www.ifrs.org/news-and-events/news/'
+            . "\n" . 'خبرهای IAASB:' . "\n" . 'https://www.iaasb.org/news'
+            . "\n" . 'مقاله‌های INTHEBLACK از CPA Australia:' . "\n" . 'https://intheblack.cpaaustralia.com.au/latest'
         ));
 
         return;
@@ -553,16 +553,16 @@ function askAbout(string $slug, bool $hasTopic): void
 function menuText(): string
 {
     return Persian::rtl(
-        'ربات ترجمهٔ مقالات حسابداری و حسابرسی بین‌المللی' . "\n\n"
-        . 'لینک مقالهٔ تخصصی حسابداری یا حسابرسی را بفرست؛ ترجمهٔ فارسی‌اش را در تاپیک خودش می‌گذارم.' . "\n"
+        'ربات ترجمهٔ مقالات تخصصی حسابداری و حسابرسی بین‌المللی' . "\n\n"
+        . 'لینک خودِ مقالهٔ تخصصی حسابداری یا حسابرسی را بفرست؛ ترجمهٔ فارسی‌اش را در تاپیک خودش می‌گذارم.' . "\n"
         . 'اصلاح واژه: /accmeta_term audit evidence = شواهد حسابرسی' . "\n"
         . 'فهرست اصلاح‌ها: /accmeta_terms' . "\n"
         . 'حذف اصلاح: /accmeta_term_remove audit evidence' . "\n"
-        . 'منابع پشتیبانی‌شده:' . "\n"
-        . 'https://www.journalofaccountancy.com/news/...' . "\n"
-        . 'https://www.ifrs.org/news-and-events/news/.../' . "\n"
-        . 'https://www.iaasb.org/news-events/...' . "\n"
-        . 'https://intheblack.cpaaustralia.com.au/category/article-slug'
+        . 'فهرست‌های رسمی برای پیدا کردن مقاله؛ لینک خود مقاله را بفرست، نه صفحهٔ فهرست:' . "\n"
+        . 'خبرهای Journal of Accountancy:' . "\n" . 'https://www.journalofaccountancy.com/news/' . "\n"
+        . 'خبرهای بنیاد IFRS:' . "\n" . 'https://www.ifrs.org/news-and-events/news/' . "\n"
+        . 'خبرهای IAASB:' . "\n" . 'https://www.iaasb.org/news' . "\n"
+        . 'مقاله‌های INTHEBLACK از CPA Australia:' . "\n" . 'https://intheblack.cpaaustralia.com.au/latest'
     );
 }
 
