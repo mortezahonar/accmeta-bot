@@ -56,7 +56,7 @@ if ($diagnosticFileIndex !== false && isset($argv[$diagnosticFileIndex + 1])) {
     }
 }
 
-foreach (['chat_id', 'gemini_api_key'] as $required) {
+foreach (['chat_id'] as $required) {
     if ((string) $config[$required] === '' || str_starts_with((string) $config[$required], 'PASTE_')) {
         fwrite(STDERR, "Missing config value: {$required}\n");
         exit(1);
@@ -580,7 +580,7 @@ function menuKeyboard(): array
 
 function runPlan(string $slug, bool $isUpdate): void
 {
-    global $telegram, $service, $store, $chatId, $log;
+    global $telegram, $service, $store, $chatId, $log, $config;
 
     $log('run plan: update=' . ($isUpdate ? 'yes' : 'no') . ' slug=' . $slug);
 
@@ -588,6 +588,15 @@ function runPlan(string $slug, bool $isUpdate): void
 
     if ($link === null) {
         $telegram->sendMessage($chatId, Persian::rtl('این لینک دیگر معتبر نیست. لینک مقاله را دوباره بفرست.'));
+
+        return;
+    }
+
+    if (trim((string) $config['gemini_api_key']) === '' && trim((string) $config['fallback_api_key']) === '') {
+        $log('plan stopped: no AI provider key configured');
+        $telegram->sendMessage($chatId, Persian::rtl(
+            'ترجمه هنوز فعال نیست؛ کلید هوش مصنوعی در تنظیمات ربات ثبت نشده است.'
+        ));
 
         return;
     }
