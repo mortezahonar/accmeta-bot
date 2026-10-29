@@ -19,6 +19,11 @@ on:
         type: boolean
         default: false
 
+      migrate_webhook:
+        description: "Explicitly replace the current Telegram webhook with accmeta-hook"
+        type: boolean
+        default: false
+
   schedule:
     - cron: '17 * * * *'
 
@@ -116,6 +121,7 @@ jobs:
         env:
           HOOK_URL: ${{ secrets.ACCMETA_HOOK_URL }}
           TELEGRAM_SECRET: ${{ secrets.ACCMETA_TELEGRAM_SECRET }}
+          MIGRATE_WEBHOOK: ${{ inputs.migrate_webhook }}
         run: |
           if [ -z "$ACCMETA_BOT_TOKEN" ] || [ -z "$HOOK_URL" ] || [ -z "$TELEGRAM_SECRET" ]; then
             echo "Webhook health check skipped: target runtime secrets are not configured yet."
@@ -126,9 +132,12 @@ jobs:
           info=$(curl -sS "https://api.telegram.org/bot$ACCMETA_BOT_TOKEN/getWebhookInfo")
           current=$(printf '%s' "$info" | jq -r '.result.url')
           if [ "$current" != "$HOOK_URL" ]; then
-            if [ -n "$current" ] && [ "$current" != "null" ]; then
+            if [ -n "$current" ] && [ "$current" != "null" ] && [ "$MIGRATE_WEBHOOK" != "true" ]; then
               echo "A different webhook is already configured; refusing to replace it automatically."
               exit 1
+            fi
+            if [ -n "$current" ] && [ "$current" != "null" ]; then
+              echo "Explicit migration requested; replacing the existing webhook with accmeta-hook."
             fi
             echo "Webhook URL differs; registering the accmeta-hook endpoint."
             curl -sS --fail -X POST "https://api.telegram.org/bot$ACCMETA_BOT_TOKEN/setWebhook" \
