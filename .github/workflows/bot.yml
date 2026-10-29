@@ -10,6 +10,10 @@ on:
         description: "Read updates with getUpdates (only when no webhook is set)"
         type: boolean
         default: false
+      identify_chat:
+        description: "Find the numeric target group ID using one /chatid update"
+        type: boolean
+        default: false
       test_key:
         description: "Only check that the Gemini key works (no bot run)"
         type: boolean
@@ -98,8 +102,14 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.poll
         run: php bot.php --once
 
+      - name: Identify target group chat ID
+        if: github.event_name == 'workflow_dispatch' && inputs.identify_chat
+        env:
+          ACCMETA_BOT_TOKEN: ${{ secrets.ACCMETA_BOT_TOKEN }}
+        run: bash scripts/identify_group_chat.sh
+
       - name: Webhook health check
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.identify_chat)
         env:
           HOOK_URL: ${{ secrets.ACCMETA_HOOK_URL }}
           TELEGRAM_SECRET: ${{ secrets.ACCMETA_TELEGRAM_SECRET }}

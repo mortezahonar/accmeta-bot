@@ -38,6 +38,8 @@ Worker فقط update را موقتاً در KV مستقل ذخیره می‌کن
 - `ACCMETA_BOT_SECRET`: همان secret binding با نام `BOT_SECRET` در Worker؛ برای دریافت یک‌بارهٔ update.
 - `ACCMETA_TELEGRAM_SECRET`: همان secret binding با نام `TELEGRAM_SECRET` در Worker؛ برای ثبت امن webhook در Telegram.
 
+برای پیدا کردن chat ID بدون ربات ثالث، در گروه به `@Accmeta_bot` فرمان `/chatid` بفرست و در GitHub از **Actions → accmeta-bot → Run workflow** گزینهٔ `identify_chat` را اجرا کن. اگر webhook دیگری فعال باشد یا update دیگری در صف باشد، ابزار متوقف می‌شود و چیزی را تغییر یا مصرف نمی‌کند.
+
 مدل‌ها/endpointها در `config.php` پیش‌فرض دارند و قابل override با environment variable هستند. برای توسعهٔ محلی می‌توان `config.example.php` را به `secrets.php` کپی کرد؛ `secrets.php` نباید commit شود.
 
 برای بررسی دستی fallback، workflow با نام `Accmeta fallback provider check` فقط یک درخواست کوتاه «Reply with OK only» می‌فرستد؛ خروجی مدل و کلید log نمی‌شوند و متن مقاله‌ای استفاده نمی‌شود.
