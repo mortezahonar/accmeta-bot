@@ -1,0 +1,44 @@
+واژه‌نامهٔ ترجمهٔ حسابداری و حسابرسی — معادل‌های زیر را در صورت سازگاری با بافت مقاله یکسان به‌کار ببر:
+
+- accounting: حسابداری
+- auditing / audit: حسابرسی
+- auditor: حسابرس
+- audit engagement: مأموریت حسابرسی
+- audit evidence: شواهد حسابرسی
+- audit opinion: اظهارنظر حسابرسی
+- assurance: اطمینان‌بخشی
+- attestation: گواهی‌دهی
+- financial statements: صورت‌های مالی
+- financial reporting: گزارشگری مالی
+- accounting standards: استانداردهای حسابداری
+- International Financial Reporting Standards (IFRS): استانداردهای بین‌المللی گزارشگری مالی (IFRS)
+- International Standards on Auditing (ISA): استانداردهای بین‌المللی حسابرسی (ISA)
+- generally accepted accounting principles (GAAP): اصول پذیرفته‌شدهٔ حسابداری (GAAP)
+- assets: دارایی‌ها
+- liabilities: بدهی‌ها
+- equity: حقوق مالکانه
+- revenue: درآمد
+- expenses: هزینه‌ها
+- cash flow: جریان نقدی
+- fair value: ارزش منصفانه
+- impairment: کاهش ارزش
+- inventory: موجودی مواد و کالا
+- lease: اجاره
+- consolidation: تلفیق
+- internal control: کنترل داخلی
+- internal control over financial reporting: کنترل داخلی بر گزارشگری مالی
+- materiality: اهمیت
+- material misstatement: تحریف بااهمیت
+- fraud: تقلب
+- going concern: تداوم فعالیت
+- accrual accounting: حسابداری تعهدی
+- substantive procedures: روش‌های محتوایی
+- risk assessment: ارزیابی ریسک
+- audit quality: کیفیت حسابرسی
+- sustainability reporting: گزارشگری پایداری
+- sustainability assurance: اطمینان‌بخشی پایداری
+- public company: شرکت سهامی عام (در بافت حقوقی آمریکا)
+- nonissuer: واحدی که ناشر اوراق بهادار عمومی نیست (در بافت استانداردهای آمریکا)
+- CPA: CPA؛ معادل فارسی را فقط در صورت روشن‌بودن حوزهٔ قضایی و مفهوم به‌کار ببر.
+
+اگر اصطلاح یا استاندارد به کشور یا چارچوب خاصی وابسته است، دامنهٔ آن را حفظ کن و آن را به اصطلاح حقوقی ایران تبدیل نکن.

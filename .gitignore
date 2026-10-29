@@ -1,0 +1,6 @@
+/secrets.php
+/config.local.php
+*.log
+
+# State is committed on purpose, exactly as in JCM, so GitHub-hosted runners
+# can retain the topic map, pending jobs, saved links and polling offset.

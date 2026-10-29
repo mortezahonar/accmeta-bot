@@ -1,0 +1,571 @@
+<?php
+
+declare(strict_types=1);
+
+final class Translator
+{
+    private const L = "\u{27E6}";
+    private const R = "\u{27E7}";
+
+    /**
+     * The only tags Telegram accepts in HTML mode. Any other tag found in the
+     * source is text the author was talking about, not markup to render.
+     */
+    private const RENDERED_TAGS = [
+        'a', 'b', 'blockquote', 'code', 'del', 'em', 'i', 'ins', 'pre', 's',
+        'span', 'strike', 'strong', 'tg-emoji', 'tg-spoiler', 'u',
+    ];
+
+    /** @var array<int, array{type:string, data:array}> */
+    private array $atoms = [];
+
+    /** @var list<array{href:string, label:string}> */
+    private array $sourceLinks = [];
+
+    private int $nextOpeningLink = 0;
+
+    public function __construct(
+        private TextGenerator $generator,
+        private string $systemPrompt,
+        private string $glossary = '',
+        private array $termOverrides = []
+    ) {
+    }
+
+    public function translateTitle(string $text): string
+    {
+        return $this->translate($text, false);
+    }
+
+    /**
+     * Translate article HTML into Telegram HTML.
+     * Images are removed here and handled by the caller (sendPhoto).
+     */
+    public function translateBody(string $html): string
+    {
+        return $this->translate($this->normalize($html), true);
+    }
+
+    private function translate(string $source, bool $markup): string
+    {
+        $source = trim($source);
+
+        if ($source === '') {
+            return '';
+        }
+
+        $this->atoms = [];
+        $this->sourceLinks = $this->extractSourceLinks($source);
+        $this->nextOpeningLink = 0;
+        $protected = $this->protect($source);
+
+        if (trim($protected) === '') {
+            return '';
+        }
+
+        $systemPrompt = $this->systemPrompt();
+        $translated = $this->generator->generate($systemPrompt, $protected);
+
+        if (!$this->hasValidProtectedMarkers($protected, $translated)) {
+            $strictPrompt = $systemPrompt . "\n\n"
+                . 'خطای ساختاری: پاسخ قبلی markerهای پیوند یا بلوک کد را حذف یا جابه‌جا کرد. این متن را از نو ترجمه کن. '
+                . 'تمام markerهای پیوند، URL و بلوک کد را عیناً، دقیقاً یک‌بار و به همان ترتیب نگه دار؛ '
+                . 'محتوای کد را ترجمه یا ویرایش نکن. متن لینک‌شده باید میان markerهای اصلی خودش بماند. هیچ پیوندی را به انتهای متن منتقل نکن.';
+            $translated = $this->generator->generate($strictPrompt, $protected);
+
+            if (!$this->hasValidProtectedMarkers($protected, $translated)) {
+                throw new RuntimeException('ساختار پیوندها یا بلوک کد در ترجمه حفظ نشد؛ برای جلوگیری از خرابی ارجاع یا کد، آماده‌سازی پیش‌نویس متوقف شد. لطفاً دوباره تلاش کنید.');
+            }
+        }
+
+        $restored = $this->restore($translated, $markup);
+
+        if ($markup) {
+            $restored = $this->postProcess($restored);
+            $restored = $this->restore($restored);
+        }
+
+        return trim($restored);
+    }
+
+    private function systemPrompt(): string
+    {
+        $prompt = $this->systemPrompt;
+
+        if ($this->glossary !== '') {
+            $prompt .= "\n\n" . $this->glossary;
+        }
+
+        return $prompt;
+    }
+
+    private function normalize(string $html): string
+    {
+        $s = $html;
+        $s = str_replace("\r\n", "\n", $s);
+        $s = preg_replace('#<br\s*/?>#i', "\n", $s) ?? $s;
+        $s = preg_replace('#<hr\s*/?>#i', "\n[[HR]]\n", $s) ?? $s;
+        $s = preg_replace('#</(h2|h3|h4)>#i', "\n\n", $s) ?? $s;
+        $s = preg_replace('#<(h2|h3|h4)[^>]*>#i', "\n\n", $s) ?? $s;
+        $s = preg_replace('#</p>\s*<p\b[^>]*>#i', "\n\n", $s) ?? $s;
+        $s = preg_replace('#<p\b[^>]*>#i', '', $s) ?? $s;
+        $s = str_replace('</p>', "\n", $s);
+        $s = preg_replace('#<li[^>]*>#i', '• ', $s) ?? $s;
+        $s = str_replace('</li>', "\n", $s);
+        $s = preg_replace('#</?(ul|ol)[^>]*>#i', "\n", $s) ?? $s;
+        $s = preg_replace('#</?sub>#i', '', $s) ?? $s;
+        $s = preg_replace('#</?(b|strong|i|em|u|s|del|ins|blockquote|details|summary|tt)>#i', '', $s) ?? $s;
+        $s = preg_replace('#\n{3,}#', "\n\n", $s) ?? $s;
+
+        return trim($s);
+    }
+
+    private function protect(string $s): string
+    {
+        $s = $this->protectCodeBlocks($s);
+
+        // Images (kept as atoms; sent separately)
+        $s = preg_replace_callback('#<img\b[^>]*>#i', function (array $m): string {
+            $alt = preg_match('#alt="([^"]*)"#i', $m[0], $a) === 1 ? $a[1] : '';
+            $src = preg_match('#src="([^"]*)"#i', $m[0], $a) === 1 ? $a[1] : '';
+
+            return $this->atom('img', ['src' => $src, 'alt' => $alt]);
+        }, $s) ?? $s;
+
+        // Replace each complete anchor as a pair so open/close markers cannot drift.
+        $s = preg_replace_callback('#<a\b([^>]*)>(.*?)</a\s*>#is', function (array $m): string {
+            $href = $this->extractHrefAttribute($m[1]);
+
+            if ($href === null) {
+                return $m[2];
+            }
+
+            $linkId = $this->nextOpeningLink++;
+            $fallback = $this->sourceLinks[$linkId] ?? ['href' => $href, 'label' => ''];
+            $open = $this->atom('linkopen', [
+                'href'    => $fallback['href'],
+                'label'   => $fallback['label'],
+                'link_id' => $linkId,
+            ]);
+            $close = $this->atom('linkclose', ['link_id' => $linkId]);
+
+            return $open . $m[2] . $close;
+        }, $s) ?? $s;
+
+        // Code spans (content is never translated)
+        $s = preg_replace_callback('#<code>(.*?)</code>#is', function (array $m): string {
+            return $this->atom('code', ['text' => html_entity_decode($m[1], ENT_QUOTES)]);
+        }, $s) ?? $s;
+
+        // Bare URLs outside anchors; a URL used as an anchor label is already clickable.
+        $s = $this->protectBareUrls($s);
+
+        // HTML entities written literally in the source, after capturing full bare URLs.
+        $s = preg_replace_callback('~&(?:[a-zA-Z]+|#[0-9]+);~', function (array $m): string {
+            return $this->atom('entity', ['text' => $m[0]]);
+        }, $s) ?? $s;
+
+        $s = $this->protectTermOverrides($s);
+
+        // Anything left that looks like a tag cannot be rendered by Telegram:
+        // the author was naming it, so escape it and keep it readable instead
+        // of letting Telegram reject the whole message.
+        $s = preg_replace_callback('#</?([a-zA-Z][a-zA-Z0-9-]*)(?:\s[^<>]*)?/?>#', function (array $m): string {
+            if (in_array(strtolower($m[1]), self::RENDERED_TAGS, true)) {
+                return $m[0];
+            }
+
+            return $this->atom('plain', ['text' => $m[0]]);
+        }, $s) ?? $s;
+
+        return $s;
+    }
+
+    private function protectCodeBlocks(string $text): string
+    {
+        $text = preg_replace_callback('#<pre\b([^>]*)>(.*?)</pre\s*>#is', function (array $match): string {
+            $attributes = $match[1];
+            $contents = $match[2];
+
+            if (preg_match('#<code\b([^>]*)>(.*?)</code\s*>#is', $contents, $codeMatch) === 1) {
+                $attributes .= ' ' . $codeMatch[1];
+                $contents = $codeMatch[2];
+            }
+
+            $contents = preg_replace('#<br\s*/?>#i', "\n", $contents) ?? $contents;
+            $code = html_entity_decode(strip_tags($contents), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+            return $this->atom('codeblock', [
+                'language' => $this->codeLanguage($attributes, $code),
+                'text'     => $code,
+            ]);
+        }, $text) ?? $text;
+
+        return preg_replace_callback('#\{codecitation\b[^}]*\}(.*?)\{/codecitation\s*\}#is', function (array $match): string {
+            $code = html_entity_decode(strip_tags($match[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $code = trim($code, "\r\n");
+
+            return $this->atom('codeblock', [
+                'language' => $this->codeLanguage('', $code),
+                'text'     => $code,
+            ]);
+        }, $text) ?? $text;
+    }
+
+    private function codeLanguage(string $attributes, string $code): string
+    {
+        if (preg_match('/\blanguage-([a-z][a-z0-9_-]*)\b/i', $attributes, $match) === 1) {
+            return strtolower($match[1]);
+        }
+
+        if (preg_match('/\b(?:data-language|lang)\s*=\s*["\']?([a-z][a-z0-9_-]*)/i', $attributes, $match) === 1) {
+            return strtolower($match[1]);
+        }
+
+        return preg_match('~<\?(?:php|=)|\$[A-Za-z_][A-Za-z0-9_]*|->|::~i', $code) === 1 ? 'php' : '';
+    }
+
+    private function restore(string $s, bool $deferCodeBlocks = false): string
+    {
+        $pattern = '#' . self::L . '(\d+)' . self::R . '#u';
+
+        return preg_replace_callback($pattern, function (array $m) use ($deferCodeBlocks): string {
+            $atom = $this->atoms[(int) $m[1]] ?? null;
+
+            if ($atom === null) {
+                return '';
+            }
+
+            if ($deferCodeBlocks && $atom['type'] === 'codeblock') {
+                return $m[0];
+            }
+
+            return $this->render($atom);
+        }, $s) ?? $s;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function render(array $atom): string
+    {
+        $data = $atom['data'];
+
+        switch ($atom['type']) {
+            case 'linkopen':
+                $href = (string) $data['href'];
+
+                return '<a href="' . $this->esc($href) . '">';
+            case 'linkclose':
+                return '</a>';
+            case 'code':
+                return '<code>' . $this->esc((string) $data['text']) . '</code>';
+            case 'codeblock':
+                $language = (string) ($data['language'] ?? '');
+                $class = preg_match('/^[a-z][a-z0-9_-]*$/i', $language) === 1
+                    ? ' class="language-' . strtolower($language) . '"'
+                    : '';
+
+                return '<pre><code' . $class . '>' . $this->esc((string) $data['text']) . '</code></pre>';
+            case 'entity':
+                return '<code>' . $this->esc((string) $data['text']) . '</code>';
+            case 'term':
+                return $this->esc((string) $data['text']);
+            case 'plain':
+                // A tag Telegram cannot render: show it as text, not as markup.
+                return $this->esc((string) $data['text']);
+            case 'url':
+                $url = (string) $data['url'];
+
+                return '<a href="' . $this->esc($url) . '">' . $this->esc($url) . '</a>';
+            case 'img':
+                return '';
+        }
+
+        return '';
+    }
+
+    private function postProcess(string $s): string
+    {
+        $s = str_replace('[[HR]]', Persian::separator(), $s);
+        $s = $this->collapseBlankLines($s);
+        $s = $this->tidyTags($s);
+        $s = $this->removeTrailingTranslationPrompt($s);
+
+        return trim($s);
+    }
+
+    private function removeTrailingTranslationPrompt(string $text): string
+    {
+        $prompt = preg_quote('لطفاً متن انگلیسی مورد نظر خود را برای ترجمه ارسال کنید', '#');
+        $inlineTags = '(?:<(?:b|strong|i|em|u|s|del|ins)>\s*)*';
+        $closingTags = '(?:\s*</(?:b|strong|i|em|u|s|del|ins)>)*';
+        $pattern = '#(?:^|\n)\h*' . $inlineTags . $prompt
+            . '[.!؟…،؛]*' . $closingTags . '\h*$#u';
+        $cleaned = preg_replace($pattern, '', $text);
+
+        return is_string($cleaned) ? trim($cleaned) : trim($text);
+    }
+
+    private function collapseBlankLines(string $s): string
+    {
+        $lines = explode("\n", $s);
+        $out = [];
+        $blank = 0;
+
+        foreach ($lines as $line) {
+            if (trim($line) === '') {
+                $blank++;
+                if ($blank > 1) {
+                    continue;
+                }
+            } else {
+                $blank = 0;
+            }
+
+            $out[] = $line;
+        }
+
+        return implode("\n", $out);
+    }
+
+    private function tidyTags(string $s): string
+    {
+        // Avoid nested/mismatched anchor tags produced by the model.
+        $s = preg_replace('#(<a [^>]*>)\s*(<a [^>]*>)#', '$1', $s) ?? $s;
+        $s = preg_replace('#(</a>)\s*(</a>)#', '$1', $s) ?? $s;
+
+        return $s;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function atom(string $type, array $data): string
+    {
+        $id = count($this->atoms);
+        $this->atoms[$id] = ['type' => $type, 'data' => $data];
+
+        return self::L . $id . self::R;
+    }
+
+    /** @return list<array{href:string, label:string}> */
+    private function extractSourceLinks(string $source): array
+    {
+        $count = preg_match_all('#<a\b([^>]*)>(.*?)</a\s*>#is', $source, $matches, PREG_SET_ORDER);
+
+        if ($count === false || $count === 0) {
+            return [];
+        }
+
+        $links = [];
+
+        foreach ($matches as $match) {
+            $href = $this->extractHrefAttribute($match[1]);
+
+            if ($href === null) {
+                continue;
+            }
+
+            $label = html_entity_decode(strip_tags($match[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $label = trim(preg_replace('/\s+/u', ' ', $label) ?? $label);
+            $links[] = [
+                'href'  => $href,
+                'label' => $label,
+            ];
+        }
+
+        return $links;
+    }
+
+    private function extractHrefAttribute(string $attributes): ?string
+    {
+        if (preg_match("~\\bhref\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))~i", $attributes, $match) !== 1) {
+            return null;
+        }
+
+        $href = (string) ($match[1] ?? '');
+
+        if ($href === '' && isset($match[2])) {
+            $href = $match[2];
+        }
+
+        if ($href === '' && isset($match[3])) {
+            $href = $match[3];
+        }
+
+        return html_entity_decode($href, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    private function protectBareUrls(string $text): string
+    {
+        $tokenPattern = '#(' . self::L . '\d+' . self::R . ')#u';
+        $parts = preg_split($tokenPattern, $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+
+        if (!is_array($parts)) {
+            return $text;
+        }
+
+        $anchorDepth = 0;
+
+        foreach ($parts as &$part) {
+            if (preg_match('#^' . self::L . '(\d+)' . self::R . '$#u', $part, $match) === 1) {
+                $atom = $this->atoms[(int) $match[1]] ?? null;
+
+                if (is_array($atom) && $atom['type'] === 'linkopen') {
+                    $anchorDepth++;
+                } elseif (is_array($atom) && $atom['type'] === 'linkclose') {
+                    $anchorDepth = max(0, $anchorDepth - 1);
+                }
+
+                continue;
+            }
+
+            if ($anchorDepth === 0) {
+                $part = preg_replace_callback('#https?://[^\s<>"\]]+#i', function (array $url): string {
+                    $href = html_entity_decode(rtrim($url[0], '.,;:)'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+                    return $this->atom('url', ['url' => $href]);
+                }, $part) ?? $part;
+            }
+        }
+        unset($part);
+
+        return implode('', $parts);
+    }
+
+    private function hasValidProtectedMarkers(string $protected, string $translated): bool
+    {
+        if ($this->protectedMarkerSequence($protected) !== $this->protectedMarkerSequence($translated)) {
+            return false;
+        }
+
+        $links = [];
+
+        foreach ($this->atoms as $atomId => $atom) {
+            $linkId = $atom['data']['link_id'] ?? null;
+
+            if (!is_int($linkId)) {
+                continue;
+            }
+
+            if ($atom['type'] === 'linkopen') {
+                $links[$linkId]['open'] = $atomId;
+            } elseif ($atom['type'] === 'linkclose') {
+                $links[$linkId]['close'] = $atomId;
+            }
+        }
+
+        ksort($links);
+        $lastClosePosition = -1;
+        $anchorRanges = [];
+
+        foreach ($links as $link) {
+            if (!isset($link['open'], $link['close'])) {
+                return false;
+            }
+
+            $openToken = self::L . $link['open'] . self::R;
+            $closeToken = self::L . $link['close'] . self::R;
+            $openPosition = strpos($translated, $openToken);
+            $closePosition = strpos($translated, $closeToken);
+
+            if ($openPosition === false || $closePosition === false || $openPosition < $lastClosePosition || $closePosition <= $openPosition) {
+                return false;
+            }
+
+            $lastClosePosition = $closePosition + strlen($closeToken);
+            $anchorRanges[] = [$openPosition, $closePosition];
+        }
+
+        foreach ($this->atoms as $atomId => $atom) {
+            if ($atom['type'] !== 'url') {
+                continue;
+            }
+
+            $position = strpos($translated, self::L . $atomId . self::R);
+
+            if ($position === false) {
+                return false;
+            }
+
+            foreach ($anchorRanges as [$openPosition, $closePosition]) {
+                if ($position > $openPosition && $position < $closePosition) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /** @return list<int> */
+    private function protectedMarkerSequence(string $text): array
+    {
+        $count = preg_match_all('#' . self::L . '(\d+)' . self::R . '#u', $text, $matches);
+
+        if ($count === false || $count === 0) {
+            return [];
+        }
+
+        $sequence = [];
+
+        foreach ($matches[1] as $rawId) {
+            $atomId = (int) $rawId;
+            $type = $this->atoms[$atomId]['type'] ?? null;
+
+            if (in_array($type, ['linkopen', 'linkclose', 'url', 'codeblock'], true)) {
+                $sequence[] = $atomId;
+            }
+        }
+
+        return $sequence;
+    }
+
+    private function protectTermOverrides(string $text): string
+    {
+        $terms = [];
+
+        foreach ($this->termOverrides as $source => $target) {
+            if (!is_string($source) || !is_string($target) || trim($source) === '' || trim($target) === '') {
+                continue;
+            }
+
+            $terms[mb_strtolower($source, 'UTF-8')] = $target;
+        }
+
+        if ($terms === []) {
+            return $text;
+        }
+
+        $sources = array_keys($terms);
+        usort($sources, static fn (string $a, string $b): int => mb_strlen($b, 'UTF-8') <=> mb_strlen($a, 'UTF-8'));
+        $alternatives = array_map(static fn (string $source): string => preg_quote($source, '#'), $sources);
+        $pattern = '#(?<![\p{L}\p{N}_])(?:' . implode('|', $alternatives) . ')(?![\p{L}\p{N}_])#iu';
+        $parts = preg_split('#(<[^>]*>)#s', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+
+        if (!is_array($parts)) {
+            return $text;
+        }
+
+        foreach ($parts as &$part) {
+            if ($part === '' || ($part[0] === '<' && str_ends_with($part, '>'))) {
+                continue;
+            }
+
+            $part = preg_replace_callback($pattern, function (array $match) use ($terms): string {
+                $target = $terms[mb_strtolower($match[0], 'UTF-8')] ?? null;
+
+                return is_string($target) ? $this->atom('term', ['text' => $target]) : $match[0];
+            }, $part) ?? $part;
+        }
+        unset($part);
+
+        return implode('', $parts);
+    }
+
+    private function esc(string $text): string
+    {
+        return htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+}

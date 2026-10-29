@@ -1,0 +1,30 @@
+name: Accmeta fallback provider check
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_model:
+        description: "Test the configured fallback or a listed free route"
+        type: choice
+        options:
+          - configured
+          - deepseek-v4.1-flash:free
+          - mimo-v2.6-flash:free
+        default: configured
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      FALLBACK_API_KEY: ${{ secrets.FALLBACK_API_KEY }}
+      FALLBACK_TEST_MODEL: ${{ inputs.test_model }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Send one minimal provider request
+        run: php scripts/check_fallback_provider.php

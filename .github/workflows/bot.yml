@@ -1,0 +1,135 @@
+name: accmeta-bot
+
+on:
+  repository_dispatch:
+    types: [telegram]
+
+  workflow_dispatch:
+    inputs:
+      poll:
+        description: "Read updates with getUpdates (only when no webhook is set)"
+        type: boolean
+        default: false
+      test_key:
+        description: "Only check that the Gemini key works (no bot run)"
+        type: boolean
+        default: false
+
+  schedule:
+    - cron: '17 * * * *'
+
+concurrency:
+  group: accmeta-bot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      ACCMETA_BOT_TOKEN: ${{ secrets.ACCMETA_BOT_TOKEN }}
+      ACCMETA_CHAT_ID: ${{ secrets.ACCMETA_CHAT_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      FALLBACK_API_KEY: ${{ secrets.FALLBACK_API_KEY }}
+      ACCMETA_GLOSSARY: ${{ github.workspace }}/data/accounting-glossary.md
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Shared provider regression tests
+        run: |
+          php tests/SharedProviderPolicyTest.php
+          php tests/HttpRedactionTest.php
+          php tests/TelegramRichMessageTest.php
+          php tests/GeminiRetryTest.php
+          php tests/OpenAiCompatibleRetryTest.php
+
+      - name: RTL direction regression test
+        run: php tests/PersianRtlTest.php
+
+      - name: Telegram publication retry regression test
+        run: php tests/TelegramRateLimitTest.php
+
+      - name: Article source and translation tests
+        run: |
+          php tests/InternationalArticleSourceTest.php
+          php tests/ArticleServiceBatchTest.php
+          php tests/TranslationCodeBlockTest.php
+          php tests/TranslationLinkPreservationTest.php
+          php tests/TranslationPromptFilterTest.php
+          php tests/TranslationTermsTest.php
+
+      - name: Gemini key check
+        if: github.event_name == 'workflow_dispatch' && inputs.test_key
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 \
+            -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$GEMINI_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"contents":[{"parts":[{"text":"reply with OK only"}]}],"generationConfig":{"maxOutputTokens":20}}')
+          echo "Gemini key check: HTTP $code"
+          test "$code" = "200"
+
+      - name: Fetch the pending update
+        if: github.event_name == 'repository_dispatch'
+        env:
+          HOOK_URL: ${{ secrets.ACCMETA_HOOK_URL }}
+          HOOK_SECRET: ${{ secrets.ACCMETA_BOT_SECRET }}
+          KEY: ${{ github.event.client_payload.key }}
+        run: |
+          mkdir -p /tmp/accmeta-bot
+          curl -sS --fail --retry 3 --retry-connrefused \
+            -H "X-Bot-Secret: $HOOK_SECRET" \
+            "$HOOK_URL/pending/$KEY" -o /tmp/accmeta-bot/update.json
+          test -s /tmp/accmeta-bot/update.json
+          echo "Fetched pending Telegram update (${#KEY} key characters)."
+
+      - name: Process the update
+        if: github.event_name == 'repository_dispatch'
+        run: php bot.php --update-file /tmp/accmeta-bot/update.json
+
+      - name: Manual poll
+        if: github.event_name == 'workflow_dispatch' && inputs.poll
+        run: php bot.php --once
+
+      - name: Webhook health check
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          HOOK_URL: ${{ secrets.ACCMETA_HOOK_URL }}
+          TELEGRAM_SECRET: ${{ secrets.ACCMETA_TELEGRAM_SECRET }}
+        run: |
+          test -n "$HOOK_URL"
+          test -n "$TELEGRAM_SECRET"
+          info=$(curl -sS "https://api.telegram.org/bot$ACCMETA_BOT_TOKEN/getWebhookInfo")
+          current=$(printf '%s' "$info" | jq -r '.result.url')
+          if [ "$current" != "$HOOK_URL" ]; then
+            echo "Webhook URL differs; registering the accmeta-hook endpoint."
+            curl -sS --fail -X POST "https://api.telegram.org/bot$ACCMETA_BOT_TOKEN/setWebhook" \
+              -d "url=$HOOK_URL" \
+              -d "secret_token=$TELEGRAM_SECRET" \
+              --data-urlencode 'allowed_updates=["message","callback_query"]' \
+              -o /dev/null
+            echo "Webhook registration request completed."
+          else
+            echo "Webhook is already registered to the configured accmeta-hook endpoint."
+          fi
+
+      - name: Persist state (same public-repository behavior as JCM)
+        if: always()
+        run: |
+          git config user.name "accmeta-bot"
+          git config user.email "accmeta-bot@users.noreply.github.com"
+          mkdir -p state
+          git add -A state
+          if git diff --cached --quiet; then
+            echo "state unchanged"
+            exit 0
+          fi
+          git commit -m "state: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
