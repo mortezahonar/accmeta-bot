@@ -104,11 +104,19 @@ jobs:
           HOOK_URL: ${{ secrets.ACCMETA_HOOK_URL }}
           TELEGRAM_SECRET: ${{ secrets.ACCMETA_TELEGRAM_SECRET }}
         run: |
+          if [ -z "$ACCMETA_BOT_TOKEN" ] || [ -z "$HOOK_URL" ] || [ -z "$TELEGRAM_SECRET" ]; then
+            echo "Webhook health check skipped: target runtime secrets are not configured yet."
+            exit 0
+          fi
           test -n "$HOOK_URL"
           test -n "$TELEGRAM_SECRET"
           info=$(curl -sS "https://api.telegram.org/bot$ACCMETA_BOT_TOKEN/getWebhookInfo")
           current=$(printf '%s' "$info" | jq -r '.result.url')
           if [ "$current" != "$HOOK_URL" ]; then
+            if [ -n "$current" ] && [ "$current" != "null" ]; then
+              echo "A different webhook is already configured; refusing to replace it automatically."
+              exit 1
+            fi
             echo "Webhook URL differs; registering the accmeta-hook endpoint."
             curl -sS --fail -X POST "https://api.telegram.org/bot$ACCMETA_BOT_TOKEN/setWebhook" \
               -d "url=$HOOK_URL" \
