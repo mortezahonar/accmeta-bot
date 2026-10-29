@@ -105,11 +105,29 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 \
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "Gemini key check: missing repository secret GEMINI_API_KEY."
+            exit 1
+          fi
+
+          code=$(curl -sS -o /tmp/gem.json -w "%{http_code}" --max-time 60 \
             -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$GEMINI_API_KEY" \
             -H "Content-Type: application/json" \
             -d '{"contents":[{"parts":[{"text":"reply with OK only"}]}],"generationConfig":{"maxOutputTokens":20}}')
-          echo "Gemini key check: HTTP $code"
+          if [ "$code" = "200" ]; then
+            echo "Gemini key check: HTTP 200; response received."
+          else
+            api_status=$(jq -r 'try (.error.status // "") catch ""' /tmp/gem.json 2>/dev/null)
+            message=$(jq -r 'try (.error.message // "") catch ""' /tmp/gem.json 2>/dev/null)
+            case "$message" in
+              *"API key not valid"*) reason="key rejected" ;;
+              *"API has not been used"*|*"is disabled"*) reason="API/project disabled" ;;
+              *"blocked"*) reason="key restriction" ;;
+              *) reason="provider rejected request" ;;
+            esac
+            echo "Gemini key check: HTTP $code; status=${api_status:-unknown}; reason=$reason"
+          fi
+          rm -f /tmp/gem.json
           test "$code" = "200"
 
       - name: Fetch the pending update
