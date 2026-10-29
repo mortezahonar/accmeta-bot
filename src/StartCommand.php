@@ -12,7 +12,7 @@ final class StartCommand
     public static function privateReply(): string
     {
         return 'سلام، به ربات ترجمهٔ مقالات حسابداری و حسابرسی خوش آمدید.' . "\n\n"
-            . 'برای دریافت ترجمه، لینک مقاله را در گروه مقصد بفرستید؛ پیام‌های گفت‌وگوی خصوصی پردازش نمی‌شوند.' . "\n\n"
+            . 'برای دریافت ترجمه، لینک مقالهٔ تخصصی حسابداری یا حسابرسی را در گروه مقصد بفرستید؛ پیام‌های گفت‌وگوی خصوصی پردازش نمی‌شوند.' . "\n\n"
             . 'منابع: Journal of Accountancy، IFRS Foundation، IAASB و INTHEBLACK (CPA Australia).';
     }
 }

@@ -31,7 +31,7 @@ foreach ($invalid as $text) {
 }
 
 $privateReply = StartCommand::privateReply();
-foreach (['گروه مقصد', 'Journal of Accountancy', 'IFRS Foundation', 'IAASB', 'INTHEBLACK'] as $required) {
+foreach (['گروه مقصد', 'مقالهٔ تخصصی حسابداری یا حسابرسی', 'Journal of Accountancy', 'IFRS Foundation', 'IAASB', 'INTHEBLACK'] as $required) {
     if (!str_contains($privateReply, $required)) {
         fwrite(STDERR, "FAIL: private start reply is missing {$required}.\n");
         exit(1);

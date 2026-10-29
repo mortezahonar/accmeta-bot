@@ -274,10 +274,10 @@ function handleUpdate(array $update): void
         $messageId = (int) ($callback['message']['message_id'] ?? 0);
 
         if ($data === 'ask') {
-            answerCallback($callbackId, 'لینک مقاله را بفرست');
+            answerCallback($callbackId, 'لینک مقالهٔ تخصصی را بفرست');
             $store->setAwaiting((string) $userId, 'auto');
             $log('menu: asked for an article link');
-            $telegram->sendMessage($chatId, Persian::rtl('لینک یک مقالهٔ عمومی از منابع حسابداری یا حسابرسی پشتیبانی‌شده را بفرست.'));
+            $telegram->sendMessage($chatId, Persian::rtl('لینک یک مقالهٔ تخصصی حسابداری یا حسابرسی از منابع پشتیبانی‌شده را بفرست.'));
 
             return;
         }
@@ -362,7 +362,7 @@ function handleUpdate(array $update): void
         offerTopic($link);
     } elseif ($awaiting !== null) {
         $log('awaited a link; received a non-link message');
-        $telegram->sendMessage($chatId, Persian::rtl('لینک را نگرفتم. لینک کامل مقاله را بفرست.'));
+        $telegram->sendMessage($chatId, Persian::rtl('لینک را نگرفتم. لینک کامل مقالهٔ تخصصی حسابداری یا حسابرسی را بفرست.'));
     } elseif (str_starts_with($text, '/')) {
         $log('command received; showing the menu');
         $telegram->sendMessage($chatId, menuText(), null, menuKeyboard());
@@ -382,7 +382,7 @@ function offerTopic(string $link): void
 
     if ($slug === '') {
         $telegram->sendMessage($chatId, Persian::rtl(
-            'این لینک به مقالهٔ پشتیبانی‌شده نمی‌خورد. لینک مقاله از یکی از این منابع را بفرست:'
+            'این لینک، مقالهٔ تخصصی حسابداری یا حسابرسی از منابع پشتیبانی‌شده نیست. لینک مقالهٔ تخصصی از یکی از این منابع را بفرست:'
             . "\n" . 'https://www.journalofaccountancy.com/news/...'
             . "\n" . 'https://www.ifrs.org/news-and-events/news/.../'
             . "\n" . 'https://www.iaasb.org/news-events/...'
@@ -554,7 +554,7 @@ function menuText(): string
 {
     return Persian::rtl(
         'ربات ترجمهٔ مقالات حسابداری و حسابرسی بین‌المللی' . "\n\n"
-        . 'لینک مقاله را بفرست؛ ترجمهٔ فارسی‌اش را در تاپیک خودش می‌گذارم.' . "\n"
+        . 'لینک مقالهٔ تخصصی حسابداری یا حسابرسی را بفرست؛ ترجمهٔ فارسی‌اش را در تاپیک خودش می‌گذارم.' . "\n"
         . 'اصلاح واژه: /accmeta_term audit evidence = شواهد حسابرسی' . "\n"
         . 'فهرست اصلاح‌ها: /accmeta_terms' . "\n"
         . 'حذف اصلاح: /accmeta_term_remove audit evidence' . "\n"
@@ -573,7 +573,7 @@ function menuKeyboard(): array
 {
     return [
         'inline_keyboard' => [[
-            ['text' => 'لینک مقاله را وارد می‌کنم', 'callback_data' => 'ask'],
+            ['text' => 'لینک مقالهٔ تخصصی را وارد می‌کنم', 'callback_data' => 'ask'],
         ]],
     ];
 }
@@ -587,7 +587,7 @@ function runPlan(string $slug, bool $isUpdate): void
     $link = $store->loadLink($slug);
 
     if ($link === null) {
-        $telegram->sendMessage($chatId, Persian::rtl('این لینک دیگر معتبر نیست. لینک مقاله را دوباره بفرست.'));
+        $telegram->sendMessage($chatId, Persian::rtl('این لینک دیگر معتبر نیست. لینک مقالهٔ تخصصی را دوباره بفرست.'));
 
         return;
     }
