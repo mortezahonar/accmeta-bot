@@ -16,6 +16,7 @@ require __DIR__ . '/src/Store.php';
 require __DIR__ . '/src/ArticleSource.php';
 require __DIR__ . '/src/InternationalArticleParser.php';
 require __DIR__ . '/src/InternationalSource.php';
+require __DIR__ . '/src/ChatIdDiagnostic.php';
 require __DIR__ . '/src/ArticleSourceRegistry.php';
 require __DIR__ . '/src/ArticleService.php';
 
@@ -25,14 +26,42 @@ Http::$proxy = (string) $config['proxy'];
 
 $stateDir = (string) $config['state_dir'];
 
-foreach (['bot_token', 'chat_id', 'gemini_api_key'] as $required) {
+if ((string) $config['bot_token'] === '' || str_starts_with((string) $config['bot_token'], 'PASTE_')) {
+    fwrite(STDERR, "Missing config value: bot_token\n");
+    exit(1);
+}
+
+$telegram = new Telegram((string) $config['bot_token']);
+$argv = $argv ?? [];
+$diagnosticFileIndex = array_search('--update-file', $argv, true);
+
+if ($diagnosticFileIndex !== false && isset($argv[$diagnosticFileIndex + 1])) {
+    $diagnosticRaw = is_file((string) $argv[$diagnosticFileIndex + 1])
+        ? (string) file_get_contents((string) $argv[$diagnosticFileIndex + 1])
+        : '';
+    $diagnosticUpdate = json_decode($diagnosticRaw, true);
+    $diagnosticChatId = is_array($diagnosticUpdate) ? ChatIdDiagnostic::target($diagnosticUpdate) : null;
+
+    if ($diagnosticChatId !== null) {
+        try {
+            $telegram->sendMessage($diagnosticChatId, Persian::rtl('شناسهٔ عددی گروه: ' . $diagnosticChatId));
+            fwrite(STDOUT, "Chat ID diagnostic reply sent.\n");
+        } catch (Throwable) {
+            fwrite(STDERR, "Chat ID diagnostic reply failed; details suppressed.\n");
+            exit(1);
+        }
+
+        exit(0);
+    }
+}
+
+foreach (['chat_id', 'gemini_api_key'] as $required) {
     if ((string) $config[$required] === '' || str_starts_with((string) $config[$required], 'PASTE_')) {
         fwrite(STDERR, "Missing config value: {$required}\n");
         exit(1);
     }
 }
 
-$telegram = new Telegram((string) $config['bot_token']);
 $topicIconPath = __DIR__ . '/data/topic_icon_custom_emoji_id.txt';
 $topicIconCustomEmojiId = is_file($topicIconPath)
     ? trim((string) file_get_contents($topicIconPath))

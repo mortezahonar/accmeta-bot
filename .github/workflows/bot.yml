@@ -53,6 +53,9 @@ jobs:
           php tests/GeminiRetryTest.php
           php tests/OpenAiCompatibleRetryTest.php
 
+      - name: Chat ID diagnostic regression test
+        run: php tests/ChatIdDiagnosticTest.php
+
       - name: RTL direction regression test
         run: php tests/PersianRtlTest.php
 
