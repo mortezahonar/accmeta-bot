@@ -55,7 +55,7 @@ final class InternationalSource implements ArticleSource
      *     lead_image: string,
      *     body_empty: bool,
      *     tags: list<string>,
-     *     blocks: list<array{type: string, html?: string, src?: string, alt?: string}>
+     *     blocks: list<array{type: string, html?: string, src?: string, alt?: string, media_type?: string}>
      * }
      */
     public function fetch(string $url): array

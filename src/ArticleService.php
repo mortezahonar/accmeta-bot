@@ -76,6 +76,22 @@ final class ArticleService
         $translationBuffer = '';
 
         foreach ($article['blocks'] as $block) {
+            if (($block['type'] ?? '') === 'media') {
+                $this->translateBufferedText($actions, $translationBuffer, $buffer);
+                $this->flush($actions, $buffer);
+
+                $url = (string) ($block['src'] ?? '');
+                if (strtolower((string) parse_url($url, PHP_URL_SCHEME)) !== 'https' || parse_url($url, PHP_URL_HOST) === null) {
+                    continue;
+                }
+                $isAudio = ($block['media_type'] ?? '') === 'audio';
+                $label = $isAudio ? 'پادکست همراه مقاله' : 'ویدئوی همراه مقاله';
+                $verb = $isAudio ? 'شنیدن' : 'تماشا';
+                $link = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">' . $verb . '</a>';
+                $actions[] = ['kind' => 'message', 'text' => Persian::rtl($label . ': ' . $link)];
+                continue;
+            }
+
             if ($block['type'] === 'img') {
                 $this->translateBufferedText($actions, $translationBuffer, $buffer);
                 $this->flush($actions, $buffer);

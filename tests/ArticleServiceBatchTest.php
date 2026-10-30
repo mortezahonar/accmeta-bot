@@ -57,6 +57,7 @@ final class BatchTestArticleSource implements ArticleSource
                 ['type' => 'text', 'html' => '<p>' . $third . '</p>'],
                 ['type' => 'img', 'src' => 'https://accounting.example/images/sample.jpg', 'alt' => '2026 Tips'],
                 ['type' => 'text', 'html' => '<p>' . $afterImage . '</p>'],
+                ['type' => 'media', 'media_type' => 'video', 'src' => 'https://players.brightcove.net/6055873642001/player_default/index.html?videoId=42'],
             ],
         ];
     }
@@ -103,12 +104,21 @@ $assert($generator->inputs[2] === str_repeat('C', 900), 'the next paragraph shou
 $assert($generator->inputs[3] === '2026 Tips', 'the image alt text should be translated as its caption');
 $assert($generator->inputs[4] === str_repeat('D', 100), 'text after a figure should be translated after the image boundary');
 $assert(
-    array_column($plan['actions'], 'kind') === ['topic', 'message', 'message', 'photo', 'message'],
+    array_column($plan['actions'], 'kind') === ['topic', 'message', 'message', 'photo', 'message', 'message'],
     'the action plan must preserve text/image order without source-specific tags'
 );
 $photos = array_values(array_filter($plan['actions'], static fn (array $action): bool => $action['kind'] === 'photo'));
 $assert(count($photos) === 1 && $photos[0]['url'] === 'https://accounting.example/images/sample.jpg', 'relative images should resolve against the article source');
 $assert($photos[0]['caption'] === Persian::RLM . '2026 Tips', 'numeric-leading photo captions must receive an RTL mark');
+$mediaMessages = array_values(array_filter(
+    $plan['actions'],
+    static fn (array $action): bool => $action['kind'] === 'message' && str_contains($action['text'], 'players.brightcove.net')
+));
+$assert(
+    count($mediaMessages) === 1
+        && str_contains($mediaMessages[0]['text'], '<a href="https://players.brightcove.net/6055873642001/player_default/index.html?videoId=42">تماشا</a>'),
+    'media blocks should create a separate clickable Persian link action'
+);
 $assert($plan['slug'] === 'test-sample-article', 'the planner should use the source adapter topic key');
 
 fwrite(STDOUT, "OK: article batching, input threshold and image ordering tests passed.\n");

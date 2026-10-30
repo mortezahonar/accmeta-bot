@@ -165,6 +165,17 @@ $assert(
     'a bare URL marker moved inside an anchor should retry and keep both links balanced and inline'
 );
 
+$divWrapper = new Translator(new KeepLinkMarkersGenerator(), 'test');
+$divWrapperHtml = $divWrapper->translateBody(
+    '<div class="content-rich-text"><div><p>Read <a href="https://example.org/guide">the linked guide</a>.</p></div></div>'
+);
+$assert(
+    !str_contains(strtolower($divWrapperHtml), '<div')
+        && !str_contains(strtolower($divWrapperHtml), '</div')
+        && str_contains($divWrapperHtml, '<a href="https://example.org/guide">the linked guide</a>'),
+    'source div wrappers and attributes should not leak into Telegram HTML while inline links remain clickable'
+);
+
 $failed = false;
 try {
     (new Translator(new DropLinkMarkersGenerator(), 'test'))

@@ -46,9 +46,16 @@ HTML,
 HTML,
     'intheblack.cpaaustralia.com.au' => <<<'HTML'
 <!doctype html><html><head><meta name="author" content="Nicola Heath"><meta property="og:image" content="/images/cover.jpg"></head><body>
-<div id="main-content"><h1>Building career resilience</h1><time datetime="2026-08-03">3 Aug 2026</time>
-<div class="content-rich-text"><p>Accounting professionals need to develop curiosity and adaptability as regulations and technology continue to change.</p></div>
-<div class="content-rich-text"><h2>Ways to practise</h2><p>Continual professional learning helps accountants respond to new client needs and emerging risks.</p><a href="https://example.org/learning">More information</a></div>
+<div class="jss-content-main"><h1>Building career resilience</h1><time datetime="2026-08-03">3 Aug 2026</time>
+<h4>At a glance</h4><div class="content-summary"><p>Accounting professionals need to develop curiosity and adaptability as regulations and technology continue to change.</p></div>
+<div class="media-embed"><video-js class="video-js bc-video" data-account="6055873642001" data-player="giLxnTq5x" data-embed="default" data-video-id="6405939953112"></video-js></div>
+<div class="content-rich-text"><div><p>The first article in this series explains accounting professionals' approach to new technology and includes a link to <a href="/technical-skills/excel-tips-python-part-1">part 1</a>.</p></div></div>
+<div class="single-image"><figure><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-src="/images/figure-one.jpg" alt="Figure one"><figcaption>First figure</figcaption></figure></div>
+<div class="content-rich-text"><div><p>Further guidance and practical resources help accountants build skills. See the <a href="https://www.cpaaustralia.com.au/professional-development/courses-and-events">course list</a> or download the <a href="/files/example.xlsx">Excel file</a>.</p></div>
+<figure><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-srcset="/images/figure-two-small.jpg 320w, /images/figure-two-large.jpg 1000w" alt="Figure two"><figcaption>Second figure</figcaption><img src="/images/figure-three.jpg" alt="Figure three"></figure></div>
+<div class="media-embed"><iframe src="https://play.libsyn.com/embed/episode/id/12345"></iframe></div>
+<div class="accordion"><p>Long podcast transcript that must not be included as article body text.</p></div>
+<div class="call-to-action"><p>Professional development: <a href="/professional-development/courses-and-events">Explore courses</a>.</p></div>
 </div></body></html>
 HTML,
 ];
@@ -107,6 +114,37 @@ $assert($joa['author'] === 'Alex Example', 'author metadata should strip the con
 $assert($joa['published'] === '2026-10-23T11:58:12-04:00', 'article publication timestamp should be preserved');
 $assert($joa['lead_image'] === 'https://www.journalofaccountancy.com/images/lead.jpg', 'OpenGraph lead image should be retained');
 $assert(in_array('Inspection chart', array_column($joa['blocks'], 'alt'), true), 'figure alt text should be preserved');
+$intheblack = $source->fetch($urls['intheblack']);
+$intheblackImages = array_values(array_filter($intheblack['blocks'], static fn (array $block): bool => ($block['type'] ?? '') === 'img'));
+$intheblackMedia = array_values(array_filter($intheblack['blocks'], static fn (array $block): bool => ($block['type'] ?? '') === 'media'));
+$intheblackHtml = implode(' ', array_map(
+    static fn (array $block): string => (string) ($block['html'] ?? ''),
+    array_values(array_filter($intheblack['blocks'], static fn (array $block): bool => ($block['type'] ?? '') === 'text'))
+));
+$assert(count($intheblackImages) === 3, 'INTHEBLACK lazy-loaded images and every image in a figure should be extracted');
+$assert(
+    in_array('https://intheblack.cpaaustralia.com.au/images/figure-one.jpg', array_column($intheblackImages, 'src'), true)
+        && in_array('https://intheblack.cpaaustralia.com.au/images/figure-two-large.jpg', array_column($intheblackImages, 'src'), true),
+    'INTHEBLACK data-src and the largest data-srcset candidate should become absolute image URLs'
+);
+$assert(
+    count($intheblackMedia) === 2
+        && in_array('video', array_column($intheblackMedia, 'media_type'), true)
+        && in_array('audio', array_column($intheblackMedia, 'media_type'), true),
+    'Brightcove video and Libsyn podcast embeds should become separate linkable media blocks'
+);
+$assert(
+    in_array('https://players.brightcove.net/6055873642001/giLxnTq5x_default/index.html?videoId=6405939953112', array_column($intheblackMedia, 'src'), true)
+        && in_array('https://play.libsyn.com/embed/episode/id/12345', array_column($intheblackMedia, 'src'), true),
+    'media blocks should use the exact HTTPS player destinations'
+);
+$assert(
+    str_contains($intheblackHtml, 'href="https://intheblack.cpaaustralia.com.au/technical-skills/excel-tips-python-part-1"')
+        && str_contains($intheblackHtml, 'href="https://intheblack.cpaaustralia.com.au/files/example.xlsx"')
+        && str_contains($intheblackHtml, 'href="https://www.cpaaustralia.com.au/professional-development/courses-and-events"'),
+    'relative article links should become absolute while full links remain clickable'
+);
+$assert(!str_contains($intheblackHtml, 'Long podcast transcript'), 'the page transcript accordion should not be duplicated into the article body');
 $assert($source->resolveUrl('../images/chart.jpg', $urls['iaasb']) === 'https://www.iaasb.org/news-events/images/chart.jpg', 'relative image URLs should resolve against the article route');
 $assert($source->resolveUrl('//cdn.example.org/image.png', $urls['iaasb']) === 'https://cdn.example.org/image.png', 'protocol-relative image URLs should become HTTPS URLs');
 $assert($requests[0] === [$urls['joa'], 90], 'the adapter should fetch validated pages with the standard timeout');

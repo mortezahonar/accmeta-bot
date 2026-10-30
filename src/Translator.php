@@ -105,6 +105,8 @@ final class Translator
         $s = str_replace("\r\n", "\n", $s);
         $s = preg_replace('#<br\s*/?>#i', "\n", $s) ?? $s;
         $s = preg_replace('#<hr\s*/?>#i', "\n[[HR]]\n", $s) ?? $s;
+        $s = preg_replace('#<div\b[^>]*>#i', "\n", $s) ?? $s;
+        $s = preg_replace('#</div\s*>#i', "\n", $s) ?? $s;
         $s = preg_replace('#</(h2|h3|h4)>#i', "\n\n", $s) ?? $s;
         $s = preg_replace('#<(h2|h3|h4)[^>]*>#i', "\n\n", $s) ?? $s;
         $s = preg_replace('#</p>\s*<p\b[^>]*>#i', "\n\n", $s) ?? $s;

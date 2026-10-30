@@ -14,7 +14,7 @@ final class InternationalArticleParser
      *     lead_image: string,
      *     body_empty: bool,
      *     tags: list<string>,
-     *     blocks: list<array{type: string, html?: string, src?: string, alt?: string}>
+     *     blocks: list<array{type: string, html?: string, src?: string, alt?: string, media_type?: string}>
      * }
      */
     public function parse(string $html, string $sourceKey, string $articleUrl): array
@@ -128,8 +128,12 @@ final class InternationalArticleParser
                 continue;
             }
 
+            if ($sourceKey === 'intheblack') {
+                $this->normalizeImageSources($xpath, $container, $articleUrl);
+            }
+            $this->normalizeLinks($xpath, $container, $articleUrl);
             $this->removeNoise($xpath, $container);
-            $this->appendBlocks($dom, $xpath, $container, $result['blocks']);
+            $this->appendBlocks($dom, $xpath, $container, $result['blocks'], $sourceKey, $articleUrl);
         }
 
         foreach ($result['blocks'] as $block) {
@@ -207,6 +211,32 @@ final class InternationalArticleParser
     /** @return list<DOMNode> */
     private function bodyContainers(DOMXPath $xpath, string $sourceKey): array
     {
+        if ($sourceKey === 'intheblack') {
+            $main = $xpath->query('//div[contains(concat(" ",normalize-space(@class)," ")," jss-content-main ")]')->item(0);
+            if ($main instanceof DOMElement) {
+                $components = [];
+                foreach ($main->childNodes as $child) {
+                    if (!$child instanceof DOMElement) {
+                        continue;
+                    }
+                    $class = ' ' . preg_replace('/\s+/', ' ', trim($child->getAttribute('class'))) . ' ';
+                    if (
+                        strtolower($child->tagName) === 'h4'
+                        || str_contains($class, ' content-summary ')
+                        || str_contains($class, ' content-rich-text ')
+                        || str_contains($class, ' single-image ')
+                        || str_contains($class, ' media-embed ')
+                        || str_contains($class, ' call-to-action ')
+                    ) {
+                        $components[] = $child;
+                    }
+                }
+                if ($components !== []) {
+                    return $components;
+                }
+            }
+        }
+
         $queries = match ($sourceKey) {
             'joa' => ['//div[contains(concat(" ",normalize-space(@class)," ")," entry-content ")]'],
             'ifrs' => ['//div[contains(concat(" ",normalize-space(@class)," ")," cmp-text ")]'],
@@ -254,7 +284,7 @@ final class InternationalArticleParser
     private function removeNoise(DOMXPath $xpath, DOMElement $container): void
     {
         $nodes = $xpath->query(
-            './/script | .//style | .//noscript | .//iframe | .//form | .//button | .//nav | .//aside | .//footer | .//svg',
+            './/script | .//style | .//noscript | .//iframe[not(ancestor::*[contains(concat(" ",normalize-space(@class)," ")," media-embed ")])] | .//form | .//button | .//nav | .//aside | .//footer | .//svg',
             $container
         );
         if ($nodes !== false) {
@@ -283,9 +313,21 @@ final class InternationalArticleParser
         }
     }
 
-    /** @param list<array{type: string, html?: string, src?: string, alt?: string}> $blocks */
-    private function appendBlocks(DOMDocument $dom, DOMXPath $xpath, DOMElement $container, array &$blocks): void
+    /** @param list<array{type: string, html?: string, src?: string, alt?: string, media_type?: string}> $blocks */
+    private function appendBlocks(
+        DOMDocument $dom,
+        DOMXPath $xpath,
+        DOMElement $container,
+        array &$blocks,
+        string $sourceKey,
+        string $articleUrl
+    ): void
     {
+        if ($sourceKey === 'intheblack' && $this->hasClass($container, 'media-embed')) {
+            $this->appendMediaBlocks($xpath, $container, $articleUrl, $blocks);
+            return;
+        }
+
         $children = [];
         foreach ($container->childNodes as $child) {
             $children[] = $child;
@@ -309,15 +351,20 @@ final class InternationalArticleParser
 
             $tag = strtolower($child->tagName);
             if ($tag === 'figure') {
-                $img = $xpath->query('.//img[@src]', $child)->item(0);
-                if ($img instanceof DOMElement) {
+                $images = $xpath->query('.//img[@src]', $child);
+                if ($images !== false && $images->length > 0) {
                     $caption = $this->normalizeText((string) $xpath->query('.//figcaption[1]', $child)->item(0)?->textContent);
-                    $alt = trim($img->getAttribute('alt'));
-                    $blocks[] = [
-                        'type' => 'img',
-                        'src' => $img->getAttribute('src'),
-                        'alt' => $alt !== '' ? $alt : $caption,
-                    ];
+                    foreach ($images as $image) {
+                        if (!$image instanceof DOMElement) {
+                            continue;
+                        }
+                        $alt = trim($image->getAttribute('alt'));
+                        $blocks[] = [
+                            'type' => 'img',
+                            'src' => $image->getAttribute('src'),
+                            'alt' => $alt !== '' ? $alt : $caption,
+                        ];
+                    }
                     continue;
                 }
             }
@@ -331,10 +378,183 @@ final class InternationalArticleParser
             if (is_string($html) && trim(strip_tags($html)) !== '') {
                 $blocks[] = ['type' => 'text', 'html' => $html];
             } elseif ($html !== '' && preg_match('/<img\b/i', $html)) {
-                $img = $xpath->query('.//img[@src]', $child)->item(0);
-                if ($img instanceof DOMElement) {
-                    $blocks[] = ['type' => 'img', 'src' => $img->getAttribute('src'), 'alt' => $img->getAttribute('alt')];
+                $images = $xpath->query('.//img[@src]', $child);
+                if ($images !== false) {
+                    foreach ($images as $image) {
+                        if ($image instanceof DOMElement) {
+                            $blocks[] = ['type' => 'img', 'src' => $image->getAttribute('src'), 'alt' => $image->getAttribute('alt')];
+                        }
+                    }
                 }
+            }
+        }
+    }
+
+    private function hasClass(DOMElement $element, string $class): bool
+    {
+        return preg_match('/(?:^|\s)' . preg_quote($class, '/') . '(?:\s|$)/', $element->getAttribute('class')) === 1;
+    }
+
+    private function normalizeImageSources(DOMXPath $xpath, DOMElement $container, string $articleUrl): void
+    {
+        $images = $xpath->query('.//img', $container);
+        if ($images === false) {
+            return;
+        }
+
+        $remove = [];
+        foreach ($images as $image) {
+            if (!$image instanceof DOMElement) {
+                continue;
+            }
+            $src = $this->safeWebUrl($this->imageSource($image), $articleUrl);
+            if ($src === '') {
+                $remove[] = $image;
+                continue;
+            }
+            $image->setAttribute('src', $src);
+            foreach (['srcset', 'data-src', 'data-srcset', 'data-lazy-src', 'data-original', 'data-image', 'data-url'] as $attribute) {
+                $image->removeAttribute($attribute);
+            }
+        }
+
+        foreach ($remove as $image) {
+            $image->parentNode?->removeChild($image);
+        }
+    }
+
+    private function imageSource(DOMElement $image): string
+    {
+        foreach (['src', 'data-src', 'data-lazy-src', 'data-original', 'data-image', 'data-url'] as $attribute) {
+            $value = trim($image->getAttribute($attribute));
+            if ($value !== '' && preg_match('#^data:image/#i', $value) !== 1) {
+                return $value;
+            }
+        }
+
+        foreach (['data-srcset', 'srcset'] as $attribute) {
+            $value = trim($image->getAttribute($attribute));
+            if ($value !== '') {
+                $candidate = $this->srcsetUrl($value);
+                if ($candidate !== '') {
+                    return $candidate;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    private function srcsetUrl(string $srcset): string
+    {
+        $bestUrl = '';
+        $bestScore = -1.0;
+        foreach (explode(',', $srcset) as $candidate) {
+            $parts = preg_split('/\s+/', trim($candidate), 2) ?: [];
+            $url = trim((string) ($parts[0] ?? ''));
+            if ($url === '' || preg_match('#^data:image/#i', $url) === 1) {
+                continue;
+            }
+            $score = 1.0;
+            if (isset($parts[1]) && preg_match('/^(\d+(?:\.\d+)?)(w|x)$/i', trim($parts[1]), $match) === 1) {
+                $score = (float) $match[1] * (strtolower($match[2]) === 'w' ? 1.0 : 1000.0);
+            }
+            if ($score >= $bestScore) {
+                $bestUrl = $url;
+                $bestScore = $score;
+            }
+        }
+        return $bestUrl;
+    }
+
+    private function normalizeLinks(DOMXPath $xpath, DOMElement $container, string $articleUrl): void
+    {
+        $links = $xpath->query('.//a[@href]', $container);
+        if ($links === false) {
+            return;
+        }
+        foreach ($links as $link) {
+            if (!$link instanceof DOMElement) {
+                continue;
+            }
+            $href = $this->safeWebUrl($link->getAttribute('href'), $articleUrl);
+            if ($href === '') {
+                $link->removeAttribute('href');
+                continue;
+            }
+            $link->setAttribute('href', $href);
+        }
+    }
+
+    private function safeWebUrl(string $url, string $articleUrl): string
+    {
+        $url = trim(html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if ($url === '' || preg_match('/^(?:javascript|data|file|vbscript):/i', $url) === 1) {
+            return '';
+        }
+
+        if (str_starts_with($url, '#')) {
+            $base = explode('#', $articleUrl, 2)[0];
+            $absolute = $base . $url;
+        } else {
+            $scheme = parse_url($url, PHP_URL_SCHEME);
+            if ($scheme !== null && !in_array(strtolower((string) $scheme), ['http', 'https'], true)) {
+                return '';
+            }
+            $absolute = self::absoluteUrl($url, $articleUrl);
+        }
+
+        $parts = parse_url($absolute);
+        if (
+            !is_array($parts)
+            || !in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true)
+            || empty($parts['host'])
+            || isset($parts['user'])
+            || isset($parts['pass'])
+        ) {
+            return '';
+        }
+        return $absolute;
+    }
+
+    /** @param list<array{type: string, html?: string, src?: string, alt?: string, media_type?: string}> $blocks */
+    private function appendMediaBlocks(DOMXPath $xpath, DOMElement $container, string $articleUrl, array &$blocks): void
+    {
+        $players = $xpath->query('.//*[contains(concat(" ",normalize-space(@class)," ")," video-js ")]', $container);
+        if ($players !== false) {
+            foreach ($players as $player) {
+                if (!$player instanceof DOMElement) {
+                    continue;
+                }
+                $account = $player->getAttribute('data-account');
+                $playerId = $player->getAttribute('data-player');
+                $embed = $player->getAttribute('data-embed') ?: 'default';
+                $videoId = $player->getAttribute('data-video-id');
+                if (
+                    preg_match('/^\d+$/', $account) !== 1
+                    || preg_match('/^[a-zA-Z0-9_-]+$/', $playerId) !== 1
+                    || preg_match('/^[a-zA-Z0-9_-]+$/', $embed) !== 1
+                    || preg_match('/^\d+$/', $videoId) !== 1
+                ) {
+                    continue;
+                }
+                $src = 'https://players.brightcove.net/' . $account . '/' . $playerId . '_' . $embed
+                    . '/index.html?videoId=' . rawurlencode($videoId);
+                $blocks[] = ['type' => 'media', 'media_type' => 'video', 'src' => $src];
+            }
+        }
+
+        $iframes = $xpath->query('.//iframe[@src or @data-src]', $container);
+        if ($iframes !== false) {
+            foreach ($iframes as $iframe) {
+                if (!$iframe instanceof DOMElement) {
+                    continue;
+                }
+                $src = $this->safeWebUrl($iframe->getAttribute('src') ?: $iframe->getAttribute('data-src'), $articleUrl);
+                if ($src === '' || strtolower((string) parse_url($src, PHP_URL_HOST)) !== 'play.libsyn.com') {
+                    continue;
+                }
+                $blocks[] = ['type' => 'media', 'media_type' => 'audio', 'src' => $src];
             }
         }
     }
