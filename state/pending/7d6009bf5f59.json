@@ -1,0 +1,133 @@
+{
+    "url": "https://play.libsyn.com/embed/episode/id/43065553/height/128/theme/modern/size/standard/thumbnail/yes/custom-color/ffffff",
+    "slug": "intheblack-excel-tips-python-excel-sentiment-analysis",
+    "is_update": false,
+    "topic_name": "‏نکات اکسل: پایتون در اکسل — تحلیل احساسات",
+    "thread_id": null,
+    "actions": [
+        {
+            "kind": "topic",
+            "name": "‏نکات اکسل: پایتون در اکسل — تحلیل احساسات"
+        },
+        {
+            "kind": "message",
+            "text": "‏نویسنده: <a href=\"\">Neale Blackwood</a>\n‏تاریخ انتشار: ۸ مهر ۱۴۰۵ — ساعت ۱۷:۳۰\n‏منبع: <a href=\"https://intheblack.cpaaustralia.com.au/technical-skills/excel-tips-python-excel-sentiment-analysis\">https://intheblack.cpaaustralia.com.au/technical-skills/excel-tips-python-excel-sentiment-analysis</a>"
+        },
+        {
+            "kind": "photo",
+            "url": "https://www.cpaaustralia.com.au/-/media/project/cpa/intheblack/images/excel/2015/excel-main.jpg?h=476&iar=0&w=806&rev=202f14b75da549c291dbcb303a44ce36&hash=3C8A2A48EAC432039505E0C809B2C813",
+            "caption": null
+        },
+        {
+            "kind": "message",
+            "text": "‏در حال بارگذاری مؤلفه...\n\n‏در یک نگاه"
+        },
+        {
+            "kind": "message",
+            "text": "‏ویدئوی همراه مقاله: <a href=\"https://players.brightcove.net/6055873642001/giLxnTq5x_default/index.html?videoId=6405939953112\">تماشا</a>"
+        },
+        {
+            "kind": "message",
+            "text": "‏اکسل با اعداد و متن به‌خوبی کار می‌کند، اما نمی‌تواند متن را مانند مدل‌های مبتنی بر زبان تفسیر کند. اینجاست که تحلیل احساسات (Sentiment analysis) وارد عمل می‌شود.\n\n‏تحلیل احساسات، متن را برای یافتن نظرات منفی یا مثبت بررسی و امتیازدهی می‌کند. دامنه امتیازدهی بین ۱- (منفی) و ۱ (مثبت) است و صفر به معنای خنثی است.\n\n‏تحلیل احساسات معمولاً برای تحلیل پست‌های شبکه‌های اجتماعی استفاده می‌شود، اما می‌توان از آن برای بررسی بازخوردهای عمومی، نظرسنجی‌ها یا آموزشی و سایر بررسی‌ها یا نظرات متنی کوتاه نیز استفاده کرد.\n\n‏داده‌های مبتنی بر متن در حال افزایش هستند و توانایی کمی‌سازی نظرات متنی می‌تواند به تحلیل بازخوردهای مشتریان یا بازخوردهای آموزشی کمک کند. نتایج را می‌توان برای مشاهده روندها در طول زمان بررسی و امتیازدهی کرد.\n\n‏اکسل نمی‌تواند تحلیل احساسات را انجام دهد، اما پایتون در اکسل (Python in Excel) قادر به این کار است. پایتون در اکسل در سه مقاله قبلی معرفی و پوشش داده شد: <a href=\"https://intheblack.cpaaustralia.com.au/technical-skills/excel-tips-python-part-1\">بخش ۱</a>، <a href=\"https://intheblack.cpaaustralia.com.au/technical-skills/excel-tips-python-excel-part-2\">بخش ۲</a> و <a href=\"https://intheblack.cpaaustralia.com.au/technical-skills/excel-tips-python-excel-part-3\">بخش ۳</a>. این مقاله فرض را بر دانش پایه پایتون در اکسل می‌گذارد.\n\n‏پایتون در اکسل به کتابخانه‌های خارجیِ هدفمند دسترسی دارد که قابلیت‌هایی را به پایتون می‌افزایند. یک کتابخانه پایتون که شامل تحلیل احساسات است، NLTK (جعبه‌ابزار زبان طبیعی) نام دارد. این کتابخانه دارای یک ویژگی تحلیل احساسات به نام VADER (استدلال‌گر احساسات و فرهنگ لغتِ آگاه از ظرفیت) است.\n\n‏این ابزار پست‌های شبکه‌های اجتماعی شامل عامیانه، حروف بزرگ، علائم نگارشی و ایموجی‌ها را درک می‌کند. این ویژگی‌ها و قابلیت‌ها را می‌توان به پایتون در اکسل وارد کرد. این کتابخانه تحلیل مستقلی از متن ارائه می‌دهد.\n\n‏&lt;h5 class=&quot;sc-gTeHfO cBpOMy&quot;&gt;ارتقای مهارت&lt;/h5&gt;\n\n<a href=\"https://www.cpaaustralia.com.au/professional-development/courses-and-events#q=excel\"><span class=\"sc-kLLXSd eAcqHB\">CPA Australia مجموعه‌ای از دوره‌های اکسل را ارائه می‌دهد که می‌توانید آن‌ها را در اینجا بیابید.</span><span class=\"sc-ikZpkk ikOmI\">﻿<span class=\"sc-jIZahH dYIHHe\"></span></span></a>\n\n‏محدودیت‌ها\n\n‏تحلیل احساسات نشان‌دهنده است، نه قطعی. این تحلیل برای بررسی‌های سطح بالا از حجم زیادی از داده‌های مبتنی بر متن مفید است. امتیازها ممکن است کنایه، اصطلاحات تخصصی یا احساسات ترکیبی را به اشتباه تفسیر کنند. این تحلیل برای متن‌های کوتاه‌تر دقیق‌تر است. تحلیل احساسات باید به بررسی‌های انسانی کمک کند، نه اینکه جایگزین آن شود.\n\n‏بررسی امتیازها به‌صورت مجزا ممکن است معنای چندانی نداشته باشد. هنگامی که این امتیازها تجمیع شده، در طول زمان بررسی شوند و با سایر معیارها مقایسه گردند، ممکن است به شناسایی روندها یا روابط کمک کنند.\n\n‏ورودی کد پایتون"
+        },
+        {
+            "kind": "photo",
+            "url": "https://www.cpaaustralia.com.au/-/media/project/cpa/intheblack/images/magazine-2026/10-october/2026-10-excel-figure-1.jpg?h=476&iar=0&w=476&rev=bdf00ae96dd547c58517f0c317a1f03d&hash=8E0F7AFF7CA68E6446D3BF1A6779118F",
+            "caption": "‏🐍\n‏Insert Python"
+        },
+        {
+            "kind": "message",
+            "text": "‏برای وارد کردن کد پایتون، ابتدا باید =PY را تایپ کرده و کلید Tab را فشار دهید. گزینه دیگر، کلیک بر روی آیکون پایتون در زبانه Formulas است (شکل 1).\n\n‏برای تأیید کد، کلیدهای Ctrl + Enter را فشار دهید یا بر روی آیکون تیک در نوار فرمول (Formula Bar) کلیک کنید.\n\n‏داده‌های متنی بازخورد\n\n‏داده‌های نمونه در یک جدول تک‌ستونی از نظرات بازخورد قرار دارند. نام این جدول tblComments است. شکل 2 را ببینید."
+        },
+        {
+            "kind": "photo",
+            "url": "https://www.cpaaustralia.com.au/-/jssmedia/project/cpa/intheblack/images/magazine-2026/10-october/2026-10-excel-figure-2.jpg?mw=768&mh=null&rev=77ac9cfdebca418da4add9692367f984",
+            "caption": "‏جدول اکسل با ستون «نظرات» (Comments) که ورودی‌های بازخورد شامل «محتوای خوب» (Good content) و نظرات تکمیلی را نشان می‌دهد."
+        },
+        {
+            "kind": "message",
+            "text": "‏راه‌اندازی\n\n‏ابتدا باید کتابخانه NLTK وارد (import) شود. سپس نیاز است که SentimentIntensityAnalyzer وارد شود. کد موجود در شکل ۳ در یک برگه جداگانه در سلول B1 وارد می‌شود."
+        },
+        {
+            "kind": "photo",
+            "url": "https://www.cpaaustralia.com.au/-/jssmedia/project/cpa/intheblack/images/magazine-2026/10-october/2026-10-excel-figure-3.jpg?mw=768&mh=null&rev=badfa2e07fb44a838eba98c6050ec14c",
+            "caption": "‏تصویر اکسل که کد پایتون برای وارد کردن تحلیل احساسات NLTK VADER و متن «Import Vader» را در یک سلول کاربرگ نشان می‌دهد."
+        },
+        {
+            "kind": "message",
+            "text": "‏متغیر sia در کدی که در ادامه می‌آید برای اشاره به SentimentIntensityAnalyzer استفاده شده است. این ابزار یک امتیاز احساس (sentiment score) برای متن ارائه می‌دهد.\n\n‏هنگامی که متن تحلیل می‌شود، یک دیکشنری از نتایج را بازمی‌گرداند.\n\n‏دیکشنری یک نوع داده در پایتون است که می‌تواند چندین نتیجه را ذخیره کند. کد پایتون در سلول B2، یک دیکشنری از نتایج را بر اساس متن نقد در سلول A2 بازمی‌گرداند — شکل 4 را ببینید."
+        },
+        {
+            "kind": "photo",
+            "url": "https://www.cpaaustralia.com.au/-/jssmedia/project/cpa/intheblack/images/magazine-2026/10-october/2026-10-excel-figure-4.jpg?mw=768&mh=null&rev=95a645db719a41efa52080efe5ab32dc",
+            "caption": "‏کاربرگ اکسل که کد پایتون را نشان می‌دهد و امتیازات احساسی (sentiment scores) را برای متن موجود در سلول A2 با استفاده از تحلیل احساسات VADER محاسبه می‌کند."
+        },
+        {
+            "kind": "message",
+            "text": "‏یک راه برای مشاهدهٔ خروجی دیکشنری، تبدیل آن به یک دیتافریم (جدول) پایتون است. سلول B3 این موضوع را نشان می‌دهد – به شکل  مراجعه کنید."
+        },
+        {
+            "kind": "photo",
+            "url": "https://www.cpaaustralia.com.au/-/jssmedia/project/cpa/intheblack/images/magazine-2026/10-october/2026-10-excel-figure-5.jpg?mw=768&mh=null&rev=fec5797fe1784051a2bc81f362005309",
+            "caption": "‏کاربرگ اکسل که نتایج تحلیل احساسات VADER را در جدولی با ستون‌های neg، neu، pos و compound score نشان می‌دهد."
+        },
+        {
+            "kind": "message",
+            "text": "‏توجه داشته باشید که ارجاع به pd مربوط به کتابخانه pandas است که به‌طور خودکار در اکسل بارگذاری شده و با استفاده از ارجاع pd به آن اشاره می‌شود. کتابخانه pandas به مدیریت و تحلیل داده‌ها اختصاص دارد. (کتابخانه pandas در مقالات قبلی پایتون توضیح داده شده است.) توجه: یک دیتافریم (dataframe) در پایتون، همان جدول در اکسل است.\n\n‏امتیاز ترکیبی (0.6369) امتیاز کلی بر اساس سه مقدار دیگر است. امتیاز ترکیبی مقیاسی از ۱- تا ۱+ است. منفی یک نشان‌دهنده بسیار منفی، ۰ خنثی و مثبت یک بسیار مثبت است.\n\n‏تحلیل تک‌تک سلول‌های متنی برای پردازش پایتون در اکسل ناکارآمد است.\n\n‏ما می‌توانیم کل جدول نظرات متنی را در یک سلول تحلیل کنیم. سلول B6 حاوی کد است و در شکل 6 نشان داده شده است. من برای کمک به توضیح کد در زیر، شماره خطوط را در سمت چپ اضافه کرده‌ام."
+        },
+        {
+            "kind": "photo",
+            "url": "https://www.cpaaustralia.com.au/-/jssmedia/project/cpa/intheblack/images/magazine-2026/10-october/2026-10-excel-figure-6.jpg?mw=768&mh=null&rev=77bebfc8170f480ea5692e7c0fe4867f",
+            "caption": "‏در ادامه، کد پایتون برای پیمایش در میان نظرات، محاسبه امتیازات تحلیل احساسات (Sentiment Scores) با استفاده از VADER و ایجاد یک چارچوب داده (DataFrame) از نتایج آورده شده است:\n\n‏```python\n‏import pandas as pd\n‏from nltk.sentiment.vader import SentimentIntensityAnalyzer\n‏import nltk\n\n‏# دانلود واژه‌نامه VADER در صورت عدم وجود\n‏nltk.download('vader_lexicon')\n\n‏# لیست نمونه‌ای از نظرات\n‏comments = [\n‏    \"I love this product, it is amazing!\",\n‏    \"This is the worst experience I have ever had.\",\n‏    \"It is okay, not great but not bad either.\",\n‏    \"I am neutral about this service.\"\n‏]\n\n‏# مقداردهی اولیه به تحلیل‌گر احساسات VADER\n‏sid = SentimentIntensityAnalyzer()\n\n‏# لیست برای ذخیره نتایج\n‏results = []\n\n‏# پیمایش در میان نظرات و محاسبه امتیازات\n‏for comment in comments:\n‏    scores = sid.polarity_scores(comment)\n‏    scores['comment'] = comment\n‏    results.append(scores)\n\n‏# ایجاد چارچوب داده (DataFrame) از نتایج\n‏df_results = pd.DataFrame(results)\n\n‏# مرتب‌سازی ستون‌ها برای نمایش بهتر\n‏df_results = df_results[['comment', 'neg', 'neu', 'pos', 'compound']]\n\n‏# نمایش نتایج\n‏print(df_results)\n‏```\n\n‏[[HR]]"
+        },
+        {
+            "kind": "message",
+            "text": "1.<span> </span>متغیر AllResults یک فهرست خالی ایجاد می‌کند. این فهرست، خروجیِ هر دیکشنری (dictionary) را برای هر ورودی متن در خود نگه می‌دارد.\n\n2.<span> </span>متغیر Comments تمام نظرات را از جدول قالب‌بندی‌شده‌ای به نام tblComments دریافت می‌کند.\n\n3.<span> </span>این یک ساختار برنامه‌نویسی به نام «حلقه برای هر» (for each loop) است که در هر تکرار، از میان هر نظر در جدول عبور می‌کند.  نشان‌دهندهٔ اولین ستون در جدول است. نمایه‌گذاری (index) در پایتون از صفر شروع می‌شود، نه از یک. «حلقه برای هر» دو فرایند را برای هر نظر انجام می‌دهد.\n\n3.1<span> </span>ابتدا امتیاز احساسات (sentiment score) در متغیر Sentiment_Result ثبت می‌شود.\n\n3.2 <span> </span>این متغیر به فهرست AllResults ضمیمه (به انتهای آن اضافه) می‌شود. این کار باعث ایجاد فهرستی از نتایج دیکشنری می‌شود.\n\n4.<span> </span>متغیر df_AllResults یک چارچوب داده (data frame) است که با استفاده از تابع pd.DataFrame، فهرست دیکشنری‌ها را به یک چارچوب داده تبدیل می‌کند.\n\n5.<span> </span>این دستور، ستون جدیدی را که شامل تمام نظرات است به چارچوب داده اضافه می‌کند.\n\n6.<span> </span>این دستور چارچوب داده را اصلاح می‌کند تا تنها دو ستون داشته باشد که در آن، «نظر» (Comment) در ستون اول قرار گیرد. (توجه: compound نام امتیازی است که می‌خواهیم ثبت کنیم — به آخرین ستون در شکل ۵ مراجعه کنید).\n\n‏خروجی را می‌توان در شکل ۷ مشاهده کرد."
+        },
+        {
+            "kind": "photo",
+            "url": "https://www.cpaaustralia.com.au/-/jssmedia/project/cpa/intheblack/images/magazine-2026/10-october/2026-10-excel-figure-7.jpg?mw=768&mh=null&rev=1a290709f95a4dac890355b8b1860f72",
+            "caption": "‏جدول اکسل شامل نظرات در کنار امتیازات ترکیبی احساسات (compound sentiment scores) که برای هر نظر محاسبه شده است."
+        },
+        {
+            "kind": "message",
+            "text": "‏تحلیل احساسات"
+        },
+        {
+            "kind": "photo",
+            "url": "https://www.cpaaustralia.com.au/-/media/project/cpa/intheblack/images/magazine-2026/10-october/2026-10-excel-figure-8.jpg?h=283&iar=0&w=476&rev=cdc6aa0e604d412d833de952649c0bc9&hash=DF1A320916D96D3DC8A3CFDA9BB67716",
+            "caption": "‏جدول نگاشت امتیازات ترکیبی احساسات به توصیفات: بسیار منفی، عمدتاً منفی، خنثی، عمدتاً مثبت و بسیار مثبت."
+        },
+        {
+            "kind": "message",
+            "text": "‏اکنون که برای هر دیدگاه امتیازی داریم، می‌توانیم تحلیل احساسات را انجام دهیم. ما می‌خواهیم یکی از پنج ورودی را بازگردانیم. جدول موجود در شکل ۸، مقادیر و توصیفات به‌کاررفته برای ارزیابی امتیازها را نشان می‌دهد.\n\n‏مقادیر و توصیفات موجود در جدول را می‌توان برای انطباق با الزامات تغییر داد. این جدول بر اساس ترتیب صعودی اعداد مرتب شده است."
+        },
+        {
+            "kind": "message",
+            "text": "‏پادکست همراه مقاله: <a href=\"https://play.libsyn.com/embed/episode/id/43065553/height/128/theme/modern/size/standard/thumbnail/yes/custom-color/ffffff\">شنیدن</a>"
+        },
+        {
+            "kind": "message",
+            "text": "‏جدول تکمیل‌شده\n\n‏برای افزودن ستون شرح به جدول پایتون، می‌توانیم از توابع استاندارد اکسل استفاده کنیم. فرمول موجود در سلول H6 در شکل 9 نشان داده شده است. شماره سطرها برای توضیح در ادامه، در سمت چپ اضافه شده‌اند."
+        },
+        {
+            "kind": "photo",
+            "url": "https://www.cpaaustralia.com.au/-/jssmedia/project/cpa/intheblack/images/magazine-2026/10-october/2026-10-excel-figure-9.jpg?mw=768&mh=null&rev=4db4705e970d440aaa1c1e709db30577",
+            "caption": "‏فرمول LET در اکسل با استفاده از XLOOKUP، HSTACK و VSTACK برای ترکیب نظرات، امتیازات و توصیف‌های احساسات."
+        },
+        {
+            "kind": "message",
+            "text": "‏• متغیر d تنها ردیف‌های داده را از جدول پایتون در سلول B6 می‌گیرد. تابع DROP ردیف سرتیتر را حذف می‌کند.\n\n‏    • متغیر desc نتیجه تابع XLOOKUP را می‌گیرد. شرح امتیاز از جدول موجود در شکل ۸ استخراج می‌شود. عبارت ,1 در انتهای تابع XLOOKUP از گزینه «تطبیق دقیق یا بعدی بزرگ‌تر» (exact match or next larger) برای استخراج شرح صحیح از جدول استفاده می‌کند.\n\n‏    • متغیر hdg سرتیترهای جدول خروجی را ایجاد می‌کند.\n\n‏    • تابع VSTACK سرتیترها را به سه ستون ایجادشده توسط تابع HSTACK متصل می‌کند. تابع HSTACK داده‌های پایتون (دو ستون) را با ستون شرح ترکیب می‌کند. جدول خروجی نهایی در شکل ۱۰ نشان داده شده است."
+        },
+        {
+            "kind": "photo",
+            "url": "https://www.cpaaustralia.com.au/-/jssmedia/project/cpa/intheblack/images/magazine-2026/10-october/2026-10-excel-figure-10.jpg?mw=768&mh=null&rev=1ff79c9cf2d54878b025474fb61b44d8",
+            "caption": "‏جدول اکسل که نظرات را به همراه امتیازات احساسات (sentiment scores) و توصیفات مربوط به آن‌ها، مانند «عمدتاً مثبت» (Mainly Positive) و «بسیار مثبت» (Very Positive)، نشان می‌دهد."
+        },
+        {
+            "kind": "message",
+            "text": "‏راهکار پایتون\n\n‏پایتون در اکسل (Python in Excel) راهکاری ساده برای افزودن تحلیل احساسات به اکسل ارائه می‌دهد. توانایی کمی‌سازی نظرات متنی، امکان تحلیل مستقل منابع داده‌های مبتنی بر متن را فراهم می‌سازد.\n\n‏ویدئوی همراه و <a href=\"https://www.cpaaustralia.com.au/-/media/project/cpa/intheblack/documents/excel/2026-10-python-sentiment-analysis.xlsx?rev=2a8301f01de74298ab12376bb43d05b9\">فایل اکسل</a> به جزئیات بیشتری برای نمایش این تکنیک‌ها خواهند پرداخت."
+        }
+    ],
+    "warnings": []
+}
