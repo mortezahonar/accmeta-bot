@@ -636,10 +636,13 @@ function runPlan(string $slug, bool $isUpdate): void
                 'این مقاله هنوز تاپیکی ندارد؛ اول تاپیکش را بساز.'
             ));
         } else {
-            $telegram->editMessageText($chatId, $status['message_id'], Persian::rtl('خطا: ' . $message));
+            $telegram->editMessageText($chatId, $status['message_id'], Persian::rtl(
+                'آماده‌سازی ترجمه کامل نشد؛ مقاله منتشر نشده است. لطفاً بعداً دوباره تلاش کنید.'
+            ));
         }
 
-        return;
+        fwrite(STDERR, "Article plan failed; details suppressed.\n");
+        exit(1);
     }
 
     $jobId = bin2hex(random_bytes(6));
