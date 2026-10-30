@@ -168,7 +168,12 @@ while (true) {
         try {
             handleUpdate($update);
         } catch (Throwable $e) {
-            $log('update error: ' . $e->getMessage());
+            reportUpdateFailure($e);
+
+            if ($once) {
+                fwrite(STDERR, "Update processing failed; details suppressed.\n");
+                exit(1);
+            }
         }
     }
 
@@ -206,7 +211,24 @@ function processUpdateFile(string $file, int $offset): void
     try {
         handleUpdate($update);
     } catch (Throwable $e) {
-        $log('update error: ' . $e->getMessage());
+        reportUpdateFailure($e);
+        fwrite(STDERR, "Update processing failed; details suppressed.\n");
+        exit(1);
+    }
+}
+
+function reportUpdateFailure(Throwable $e): void
+{
+    global $telegram, $chatId, $log;
+
+    $log('update error: ' . get_class($e) . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
+
+    try {
+        $telegram->sendMessage($chatId, Persian::rtl(
+            'پردازش مقاله کامل نشد؛ ممکن است بخشی از مقاله در گروه آمده باشد. برای جلوگیری از تکرار، فعلاً دوباره تأیید نکن.'
+        ));
+    } catch (Throwable) {
+        $log('failure notice could not be delivered');
     }
 }
 

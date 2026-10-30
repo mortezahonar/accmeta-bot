@@ -26,6 +26,10 @@ final class RecordingArticleGenerator implements TextGenerator
 
 final class BatchTestArticleSource implements ArticleSource
 {
+    public function __construct(private string $imageAlt = '2026 Tips')
+    {
+    }
+
     public function supportsUrl(string $url): bool
     {
         return parse_url($url, PHP_URL_HOST) === 'accounting.example'
@@ -55,7 +59,7 @@ final class BatchTestArticleSource implements ArticleSource
                 ['type' => 'text', 'html' => '<p>' . $first . '</p>'],
                 ['type' => 'text', 'html' => '<p>' . $second . '</p>'],
                 ['type' => 'text', 'html' => '<p>' . $third . '</p>'],
-                ['type' => 'img', 'src' => 'https://accounting.example/images/sample.jpg', 'alt' => '2026 Tips'],
+                ['type' => 'img', 'src' => 'https://accounting.example/images/sample.jpg', 'alt' => $this->imageAlt],
                 ['type' => 'text', 'html' => '<p>' . $afterImage . '</p>'],
                 ['type' => 'media', 'media_type' => 'video', 'src' => 'https://players.brightcove.net/6055873642001/player_default/index.html?videoId=42'],
             ],
@@ -120,5 +124,38 @@ $assert(
     'media blocks should create a separate clickable Persian link action'
 );
 $assert($plan['slug'] === 'test-sample-article', 'the planner should use the source adapter topic key');
+
+$longAlt = str_repeat('🙂', 3600);
+$longGenerator = new RecordingArticleGenerator();
+$longService = new ArticleService(
+    new Translator($longGenerator, 'test system prompt'),
+    $store,
+    new ArticleSourceRegistry(new BatchTestArticleSource($longAlt))
+);
+$longPlan = $longService->plan('https://accounting.example/articles/sample-article', false);
+$longPhotoIndex = array_search('photo', array_column($longPlan['actions'], 'kind'), true);
+$assert($longPhotoIndex !== false, 'the long-caption plan should retain the image action');
+
+if ($longPhotoIndex !== false) {
+    $longPhoto = $longPlan['actions'][$longPhotoIndex];
+    $assert($longPhoto['caption'] === null, 'an over-limit caption should not be sent to Telegram as a photo caption');
+
+    $captionMessages = array_values(array_filter(
+        $longPlan['actions'],
+        static fn (array $action): bool => $action['kind'] === 'message'
+            && (str_contains((string) $action['text'], 'توضیح تصویر:') || str_contains((string) $action['text'], 'ادامهٔ توضیح تصویر:'))
+    ));
+    $assert(($longPlan['actions'][$longPhotoIndex + 1]['kind'] ?? '') === 'message', 'the caption text should immediately follow its image');
+    $assert(count($captionMessages) >= 2, 'caption text over the normal message limit should be split into multiple messages');
+    $assert(
+        substr_count(implode('', array_column($captionMessages, 'text')), '🙂') === 3600,
+        'splitting a long UTF-16 caption must preserve every source character'
+    );
+    $captionLengths = array_map(
+        static fn (array $action): int => intdiv(strlen(mb_convert_encoding((string) $action['text'], 'UTF-16LE', 'UTF-8')), 2),
+        $captionMessages
+    );
+    $assert(max($captionLengths) <= 3500, 'caption continuation messages must remain below the Telegram text limit');
+}
 
 fwrite(STDOUT, "OK: article batching, input threshold and image ordering tests passed.\n");

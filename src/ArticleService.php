@@ -10,6 +10,9 @@ final class ArticleService
     /** Telegram rejects messages over 4096 characters; leave headroom. */
     private const MAX_MESSAGE = 3500;
 
+    /** Leave headroom below Telegram's 1024 UTF-16-unit photo-caption limit. */
+    private const MAX_PHOTO_CAPTION_UTF16 = 900;
+
     /** Batch adjacent article text into PR-like body units, while keeping input bounded. */
     private const MAX_TRANSLATION_INPUT = 2500;
 
@@ -97,11 +100,7 @@ final class ArticleService
                 $this->flush($actions, $buffer);
 
                 $caption = $block['alt'] !== '' ? $this->translator->translateTitle($block['alt']) : null;
-                $actions[] = [
-                    'kind'    => 'photo',
-                    'url'     => $block['src'],
-                    'caption' => $caption === null ? null : $this->rtlCaption($caption),
-                ];
+                $this->appendPhotoAction($actions, (string) $block['src'], $caption);
 
                 continue;
             }
@@ -112,11 +111,7 @@ final class ArticleService
                     $this->flush($actions, $buffer);
 
                     $caption = $segment['alt'] !== '' ? $this->translator->translateTitle($segment['alt']) : null;
-                    $actions[] = [
-                        'kind'    => 'photo',
-                        'url'     => $segment['src'],
-                        'caption' => $caption === null ? null : $this->rtlCaption($caption),
-                    ];
+                    $this->appendPhotoAction($actions, (string) $segment['src'], $caption);
 
                     continue;
                 }
@@ -160,6 +155,96 @@ final class ArticleService
         unset($line);
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Keep long translated alt text intact without sending it as a Telegram photo caption.
+     *
+     * @param list<array{kind: string, name?: string, text?: string, url?: string, caption?: ?string}> $actions
+     */
+    private function appendPhotoAction(array &$actions, string $url, ?string $caption): void
+    {
+        $caption = $caption === null ? null : $this->rtlCaption($caption);
+
+        if ($caption === null || $this->utf16Length($caption) <= self::MAX_PHOTO_CAPTION_UTF16) {
+            $actions[] = ['kind' => 'photo', 'url' => $url, 'caption' => $caption];
+
+            return;
+        }
+
+        $actions[] = ['kind' => 'photo', 'url' => $url, 'caption' => null];
+        $this->appendCaptionMessages($actions, $caption);
+    }
+
+    /**
+     * @param list<array{kind: string, name?: string, text?: string, url?: string, caption?: ?string}> $actions
+     */
+    private function appendCaptionMessages(array &$actions, string $caption): void
+    {
+        $remaining = trim($caption);
+        $first = true;
+
+        while ($remaining !== '') {
+            $label = $first ? 'توضیح تصویر:' : 'ادامهٔ توضیح تصویر:';
+            $limit = self::MAX_MESSAGE - $this->utf16Length($label) - 2;
+            $remainingLength = $this->utf16Length($remaining);
+            $chunk = $this->utf16Prefix($remaining, $limit);
+
+            if ($remainingLength > $limit) {
+                $space = mb_strrpos($chunk, ' ', 0, 'UTF-8');
+                if ($space !== false && $space > intdiv($limit, 2)) {
+                    $chunk = mb_substr($remaining, 0, $space, 'UTF-8');
+                }
+            }
+
+            $chunk = rtrim($chunk);
+            $actions[] = [
+                'kind' => 'message',
+                'text' => Persian::rtl($label . "\n" . $chunk),
+            ];
+
+            $remaining = ltrim(mb_substr($remaining, mb_strlen($chunk, 'UTF-8'), null, 'UTF-8'));
+            $first = false;
+        }
+    }
+
+    private function utf16Length(string $text): int
+    {
+        $characters = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($characters)) {
+            return mb_strlen($text, 'UTF-8');
+        }
+
+        $units = 0;
+        foreach ($characters as $character) {
+            $codepoint = mb_ord($character, 'UTF-8');
+            $units += $codepoint !== false && $codepoint > 0xFFFF ? 2 : 1;
+        }
+
+        return $units;
+    }
+
+    private function utf16Prefix(string $text, int $maxUnits): string
+    {
+        $characters = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($characters)) {
+            return mb_substr($text, 0, $maxUnits, 'UTF-8');
+        }
+
+        $prefix = '';
+        $units = 0;
+        foreach ($characters as $character) {
+            $codepoint = mb_ord($character, 'UTF-8');
+            $characterUnits = $codepoint !== false && $codepoint > 0xFFFF ? 2 : 1;
+            if ($units + $characterUnits > $maxUnits) {
+                break;
+            }
+
+            $prefix .= $character;
+            $units += $characterUnits;
+        }
+
+        return $prefix;
     }
 
     /**
