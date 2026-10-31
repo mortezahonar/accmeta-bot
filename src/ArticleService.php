@@ -362,6 +362,10 @@ final class ArticleService
     {
         $lines = [];
 
+        if (trim((string) ($article['content_label'] ?? '')) !== '') {
+            $lines[] = 'نوع متن: ' . htmlspecialchars((string) $article['content_label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
         if ($article['author'] !== '') {
             $name = $article['author'] !== ''
                 ? '<a href="' . htmlspecialchars($article['author_url'], ENT_QUOTES) . '">'
@@ -375,7 +379,9 @@ final class ArticleService
             $lines[] = 'تاریخ انتشار: ' . Persian::date($article['published']);
         }
 
-        $lines[] = 'منبع: <a href="' . htmlspecialchars($url, ENT_QUOTES) . '">' . htmlspecialchars($url, ENT_QUOTES) . '</a>';
+        $sourceName = trim((string) ($article['source_name'] ?? ''));
+        $sourceLabel = $sourceName !== '' ? $sourceName : $url;
+        $lines[] = 'منبع: <a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">' . htmlspecialchars($sourceLabel, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
 
         return Persian::rtl(implode("\n", $lines));
     }

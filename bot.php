@@ -16,6 +16,7 @@ require __DIR__ . '/src/Store.php';
 require __DIR__ . '/src/ArticleSource.php';
 require __DIR__ . '/src/InternationalArticleParser.php';
 require __DIR__ . '/src/InternationalSource.php';
+require __DIR__ . '/src/SourceCatalog.php';
 require __DIR__ . '/src/ChatIdDiagnostic.php';
 require __DIR__ . '/src/StartCommand.php';
 require __DIR__ . '/src/ArticleSourceRegistry.php';
@@ -275,6 +276,19 @@ function handleUpdate(array $update): void
         return;
     }
 
+    if (isset($update['message']['text']) && StartCommand::sourcesMatches((string) $update['message']['text'])) {
+        $sourcesUserId = (int) ($update['message']['from']['id'] ?? 0);
+        if (!$isAllowed($sourcesUserId)) {
+            $log('sources command from a user not in the allowlist');
+            return;
+        }
+        if ($sourceChat === $chatId || (($update['message']['chat']['type'] ?? '') === 'private' && $sourceChat !== '')) {
+            sendSourceCatalog($sourceChat);
+            $log('official source catalog shown');
+        }
+        return;
+    }
+
     if ($sourceChat !== $chatId) {
         $log('ignored: update from a different chat');
 
@@ -294,6 +308,13 @@ function handleUpdate(array $update): void
         $data = (string) ($callback['data'] ?? '');
         $callbackId = (string) $callback['id'];
         $messageId = (int) ($callback['message']['message_id'] ?? 0);
+
+        if ($data === 'sources') {
+            answerCallback($callbackId, 'فهرست منابع رسمی');
+            sendSourceCatalog($chatId);
+            $log('official source catalog shown from menu');
+            return;
+        }
 
         if ($data === 'ask') {
             answerCallback($callbackId, 'لینک مقالهٔ تخصصی را بفرست');
@@ -577,14 +598,10 @@ function menuText(): string
     return Persian::rtl(
         'ربات ترجمهٔ مقالات تخصصی حسابداری و حسابرسی بین‌المللی' . "\n\n"
         . 'لینک خودِ مقالهٔ تخصصی حسابداری یا حسابرسی را بفرست؛ ترجمهٔ فارسی‌اش را در تاپیک خودش می‌گذارم.' . "\n"
+        . 'برای دیدن نشانی رسمی و توضیح کوتاه همهٔ منابع مجاز، دکمهٔ فهرست منابع یا /sources را بزن.' . "\n"
         . 'اصلاح واژه: /accmeta_term audit evidence = شواهد حسابرسی' . "\n"
         . 'فهرست اصلاح‌ها: /accmeta_terms' . "\n"
-        . 'حذف اصلاح: /accmeta_term_remove audit evidence' . "\n"
-        . 'فهرست‌های رسمی برای پیدا کردن مقاله؛ لینک خود مقاله را بفرست، نه صفحهٔ فهرست:' . "\n"
-        . 'خبرهای Journal of Accountancy:' . "\n" . 'https://www.journalofaccountancy.com/news/' . "\n"
-        . 'خبرهای بنیاد IFRS:' . "\n" . 'https://www.ifrs.org/news-and-events/news/' . "\n"
-        . 'خبرهای IAASB:' . "\n" . 'https://www.iaasb.org/news' . "\n"
-        . 'مقاله‌های INTHEBLACK از CPA Australia:' . "\n" . 'https://intheblack.cpaaustralia.com.au/latest'
+        . 'حذف اصلاح: /accmeta_term_remove audit evidence'
     );
 }
 
@@ -596,8 +613,22 @@ function menuKeyboard(): array
     return [
         'inline_keyboard' => [[
             ['text' => 'لینک مقالهٔ تخصصی را وارد می‌کنم', 'callback_data' => 'ask'],
+        ], [
+            ['text' => 'فهرست منابع رسمی', 'callback_data' => 'sources'],
         ]],
     ];
+}
+
+/** Send the multi-part catalog using the bot's bounded Telegram flood-control retry policy. */
+function sendSourceCatalog(string $targetChatId): void
+{
+    global $telegram;
+
+    foreach (SourceCatalog::messages() as $message) {
+        TelegramRateLimit::call(
+            static fn () => $telegram->sendMessage($targetChatId, Persian::rtl($message))
+        );
+    }
 }
 
 function runPlan(string $slug, bool $isUpdate): void

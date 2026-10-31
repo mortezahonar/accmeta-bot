@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-/** Extracts public article pages from the four allowlisted international sources. */
+/** Extracts public article pages and configured abstracts from allowlisted sources. */
 final class InternationalArticleParser
 {
     /**
@@ -17,7 +17,7 @@ final class InternationalArticleParser
      *     blocks: list<array{type: string, html?: string, src?: string, alt?: string, media_type?: string}>
      * }
      */
-    public function parse(string $html, string $sourceKey, string $articleUrl): array
+    public function parse(string $html, string $sourceKey, string $articleUrl, string $contentMode = 'article'): array
     {
         $previous = libxml_use_internal_errors(true);
         $dom = new DOMDocument();
@@ -117,9 +117,22 @@ final class InternationalArticleParser
             }
         }
 
-        $containers = $this->bodyContainers($xpath, $sourceKey);
+        $containers = $contentMode === 'abstract'
+            ? $this->abstractContainers($xpath)
+            : $this->bodyContainers($xpath, $sourceKey);
 
         if ($containers === []) {
+            if ($contentMode === 'abstract') {
+                $abstract = $this->firstText($xpath, [
+                    '//meta[@name="citation_abstract"]/@content',
+                    '//meta[@name="dc.description"]/@content',
+                    '//meta[@name="DCTERMS.abstract"]/@content',
+                ]);
+                if ($abstract !== '') {
+                    $result['blocks'][] = ['type' => 'text', 'html' => '<p>' . htmlspecialchars($abstract, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p>'];
+                    $result['body_empty'] = false;
+                }
+            }
             return $result;
         }
 
@@ -242,6 +255,12 @@ final class InternationalArticleParser
             'ifrs' => ['//div[contains(concat(" ",normalize-space(@class)," ")," cmp-text ")]'],
             'iaasb' => ['//div[contains(concat(" ",normalize-space(@class)," ")," news__content-text ")]'],
             'intheblack' => ['//div[contains(concat(" ",normalize-space(@class)," ")," content-rich-text ")]'],
+            'fasb' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," news-release-detail ")]', '//main//article'],
+            'pcaob' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," news-release-content ")]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-body ")]', '//main//article'],
+            'iia' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-content ")]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-body ")]', '//main//article'],
+            'ima' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-body ")]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-content ")]', '//main//article'],
+            'cpajournal' => ['//*[contains(concat(" ",normalize-space(@class)," ")," entry-content ")]', '//*[@itemprop="articleBody"]', '//article'],
+            'acctoday' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-body ")]', '//*[contains(concat(" ",normalize-space(@class)," ")," body-content ")]', '//article'],
             default => [],
         };
 
@@ -279,6 +298,32 @@ final class InternationalArticleParser
         }
 
         return $nodes;
+    }
+
+    /** @return list<DOMElement> */
+    private function abstractContainers(DOMXPath $xpath): array
+    {
+        $found = $xpath->query(
+            '//*[contains(translate(@class,"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz"),"abstract")]'
+            . ' | //*[@id="abstract" or @id="abstracts" or @data-testid="abstract"]'
+            . ' | //section[@data-title="Abstract" or @aria-label="Abstract"]'
+        );
+        if ($found === false) {
+            return [];
+        }
+
+        $candidates = [];
+        foreach ($found as $node) {
+            if ($node instanceof DOMElement && mb_strlen($this->normalizeText($node->textContent), 'UTF-8') >= 80) {
+                $candidates[] = $node;
+            }
+        }
+        if ($candidates === []) {
+            return [];
+        }
+
+        usort($candidates, fn (DOMNode $a, DOMNode $b): int => mb_strlen($this->normalizeText($b->textContent), 'UTF-8') <=> mb_strlen($this->normalizeText($a->textContent), 'UTF-8'));
+        return [$candidates[0]];
     }
 
     private function removeNoise(DOMXPath $xpath, DOMElement $container): void
