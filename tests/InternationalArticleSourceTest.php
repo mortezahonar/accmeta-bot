@@ -89,7 +89,6 @@ $assert(!$source->supportsUrl('https://www.journalofaccountancy.com/topics/audit
 $assert(!$source->supportsUrl('https://user:pass@www.ifrs.org/news-and-events/news/2024/05/article/'), 'credential-bearing URLs must be rejected');
 
 $verifiedRoutes = [
-    'tar' => 'https://publications.aaahq.org/accounting-review/article/100/6/405/13963/Insights-from-100-Years-of-The-Accounting-Review',
     'jae' => 'https://www.sciencedirect.com/science/article/pii/S0165410126000443',
     'jar' => 'https://onlinelibrary.wiley.com/doi/full/10.1111/1475-679X.12545',
     'car' => 'https://onlinelibrary.wiley.com/doi/abs/10.1111/1911-3846.12779',
@@ -111,7 +110,7 @@ $verifiedRoutes = [
     'japp' => 'https://www.sciencedirect.com/science/article/pii/S0278425422000667',
 ];
 $catalog = InternationalSource::catalog();
-$assert(count($catalog) === 20, 'the official catalog should contain the 18 requested sources and preserve IAASB and INTHEBLACK');
+$assert(count($catalog) === 19, 'the catalog should retain 17 requested sources plus the existing IAASB and INTHEBLACK sources');
 foreach ($catalog as $item) {
     $assert(str_starts_with($item['homepage'], 'https://'), $item['key'] . ' catalog entry should have an HTTPS official homepage');
     $assert(trim($item['description']) !== '', $item['key'] . ' catalog entry should have a short description');
@@ -120,13 +119,15 @@ foreach ($verifiedRoutes as $key => $url) {
     $assert($source->supportsUrl($url), $key . ' verified article route should be allowlisted');
 }
 $abstractKeys = array_column(array_filter($catalog, static fn (array $item): bool => $item['mode'] === 'abstract'), 'key');
-$assert(count($abstractKeys) === 10, 'all ten academic journal sources should be marked abstract-only');
+$assert(count($abstractKeys) === 9, 'the nine remaining academic journal sources should be marked abstract-only');
+$assert(!$source->supportsUrl('https://publications.aaahq.org/accounting-review/article/100/6/405/13963/Insights-from-100-Years-of-The-Accounting-Review'), 'TAR must be rejected because its article page blocks access with a CAPTCHA');
 $assert(!$source->supportsUrl('https://www.sciencedirect.com/journal/accounting-organizations-and-society'), 'publisher journal listings must not be accepted as article pages');
 $assert(!$source->supportsUrl('https://onlinelibrary.wiley.com/journal/1475679x'), 'Wiley journal homepages must not be accepted as article pages');
 $assert(!$source->supportsUrl('https://www.theiia.org/en/standards/2024-standards/global-internal-audit-standards/'), 'standards landing pages must not be mistaken for article pages');
 $catalogMessages = SourceCatalog::messages();
 $assert(count($catalogMessages) === 5, 'official sources should be grouped into five mobile-sized categories');
 $catalogMessageText = implode("\n", $catalogMessages);
+$assert(!str_contains($catalogMessageText, 'The Accounting Review'), 'removed TAR must not appear in the official sources menu');
 foreach ($catalog as $item) {
     $assert(str_contains($catalogMessageText, $item['homepage']), $item['key'] . ' official homepage should appear in /sources output');
 }
@@ -144,7 +145,7 @@ $abstractHtml = <<<'HTML'
 </body></html>
 HTML;
 $abstractSource = new InternationalSource(static fn (string $url, int $timeout): array => ['status' => 200, 'body' => $abstractHtml]);
-$abstractArticle = $abstractSource->fetch($verifiedRoutes['tar']);
+$abstractArticle = $abstractSource->fetch($verifiedRoutes['jae']);
 $abstractText = implode(' ', array_map(static fn (array $block): string => strip_tags((string) ($block['html'] ?? '')), $abstractArticle['blocks']));
 $assert($abstractArticle['content_label'] === 'چکیدهٔ مقاله', 'academic journal output should be labeled as abstract');
 $assert(str_contains($abstractText, 'research question') && !str_contains($abstractText, 'FULL ARTICLE TEXT MUST NOT BE INCLUDED'), 'abstract-only mode must not extract the full text');
@@ -163,6 +164,7 @@ foreach (['fasb', 'pcaob', 'iia', 'ima', 'cpajournal', 'acctoday'] as $key) {
 $assert($source->topicKey($urls['joa']) === $source->topicKey($urls['joa'] . '?utm_source=test'), 'tracking query strings must not change the topic key');
 $assert($source->topicKey($urls['joa']) !== $source->topicKey($urls['ifrs']), 'topic keys must be namespaced by source');
 $assert($registry->findLink('Read https://example.org/nope then https://www.iaasb.org/news-events/2023-12/iaasb-audit-guidance.') === $urls['iaasb'], 'link extraction should skip unsupported URLs and trim final punctuation');
+$assert($registry->findLink('Read https://publications.aaahq.org/accounting-review/article/100/6/405/13963/Insights-from-100-Years-of-The-Accounting-Review then https://www.iaasb.org/news-events/2023-12/iaasb-audit-guidance.') === $urls['iaasb'], 'link extraction should skip removed TAR and select the next allowed article');
 
 $expectedTitles = [
     'joa' => 'PCAOB inspection results',

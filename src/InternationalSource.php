@@ -11,15 +11,8 @@ final class InternationalSource implements ArticleSource
      * avoid attempting to reproduce subscription content.
      *
      * @var list<array{key:string,host:string,base:string,homepage:string,name:string,category:string,description:string,mode:string,path:string}>
-     */
+    */
     private const SITES = [
-        [
-            'key' => 'tar', 'host' => 'publications.aaahq.org', 'base' => 'https://publications.aaahq.org',
-            'homepage' => 'https://aaahq.org/Research/Journals/The-Accounting-Review',
-            'name' => 'The Accounting Review (TAR)', 'category' => 'مجلات علمی برتر',
-            'description' => 'پژوهش داوری‌شده در حوزه‌های گوناگون حسابداری؛ ربات فقط چکیدهٔ صفحهٔ مقاله را ترجمه می‌کند.',
-            'mode' => 'abstract', 'path' => '~^/accounting-review/article/[^/]+/[^/]+/[^/]+/[^/]+/[^/]+/?$~i',
-        ],
         [
             'key' => 'jae', 'host' => 'www.sciencedirect.com', 'base' => 'https://www.sciencedirect.com',
             'homepage' => 'https://www.sciencedirect.com/journal/journal-of-accounting-and-economics',
