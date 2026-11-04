@@ -89,28 +89,31 @@ $assert(!$source->supportsUrl('https://www.journalofaccountancy.com/topics/audit
 $assert(!$source->supportsUrl('https://user:pass@www.ifrs.org/news-and-events/news/2024/05/article/'), 'credential-bearing URLs must be rejected');
 
 $verifiedRoutes = [
-    'jae' => 'https://www.sciencedirect.com/science/article/pii/S0165410126000443',
-    'jar' => 'https://onlinelibrary.wiley.com/doi/full/10.1111/1475-679X.12545',
-    'car' => 'https://onlinelibrary.wiley.com/doi/abs/10.1111/1911-3846.12779',
-    'rast' => 'https://link.springer.com/article/10.1007/s11142-022-09743-8',
-    'ajpt' => 'https://publications.aaahq.org/ajpt/article/40/2/107/6192/eXtensible-Business-Reporting-Language-XBRL-A',
-    'maj' => 'https://www.emerald.com/maj/article/40/6/761/1265591/Confucian-culture-and-the-choice-of-high-quality',
-    'ija' => 'https://onlinelibrary.wiley.com/doi/full/10.1111/ijau.12348',
     'ifrs' => 'https://www.ifrs.org/news-and-events/news/2024/04/new-ifrs-accounting-standard-will-aid-investor-analysis-of-companies-financial-performance/',
     'iaasb' => 'https://www.iaasb.org/news-events/2023-12/iaasb-issues-guidance-assurance-practitioners-when-citing-ifrs-accounting-standards',
-    'fasb' => 'https://www.fasb.org/news-and-meetings/in-the-news/fasb-issues-standard-on-codification-improvements-423461',
-    'pcaob' => 'https://pcaobus.org/news-events/news-releases/news-release-detail/pcaob-updates-standard-setting-research-rulemaking-agendas-after-first-ever-public-comment-period',
     'iia' => 'https://www.theiia.org/en/content/articles/global-best-practices/2026/internal-audit-upskilling-for-critical-ai-capabilities/',
     'joa' => 'https://www.journalofaccountancy.com/news/2023/nov/how-artificial-intelligence-can-help-save-accounting/',
     'intheblack' => 'https://intheblack.cpaaustralia.com.au/careers-and-workplace/capability-accountants-need-to-build-career-resilience',
-    'ima' => 'https://www.imatoday.org/learn/article/budgeting-for-agentic-ai',
     'cpajournal' => 'https://www.cpajournal.com/2026/09/02/evaluating-the-use-of-ai-in-financial-statement-audits/',
     'acctoday' => 'https://www.accountingtoday.com/list/accounting-in-2026-the-year-ahead-in-numbers',
-    'aos' => 'https://www.sciencedirect.com/science/article/pii/S0361368200000039',
-    'japp' => 'https://www.sciencedirect.com/science/article/pii/S0278425422000667',
+];
+$removedRoutes = [
+    'JAE' => 'https://www.sciencedirect.com/science/article/pii/S0165410126000443',
+    'JAR' => 'https://onlinelibrary.wiley.com/doi/full/10.1111/1475-679X.12545',
+    'CAR' => 'https://onlinelibrary.wiley.com/doi/abs/10.1111/1911-3846.12779',
+    'RAST' => 'https://link.springer.com/article/10.1007/s11142-022-09743-8',
+    'AJPT' => 'https://publications.aaahq.org/ajpt/article/40/2/107/6192/eXtensible-Business-Reporting-Language-XBRL-A',
+    'MAJ' => 'https://www.emerald.com/maj/article/40/6/761/1265591/Confucian-culture-and-the-choice-of-high-quality',
+    'IJA' => 'https://onlinelibrary.wiley.com/doi/full/10.1111/ijau.12348',
+    'AOS' => 'https://www.sciencedirect.com/science/article/pii/S0361368200000039',
+    'JAPP' => 'https://www.sciencedirect.com/science/article/pii/S0278425422000667',
+    'TAR' => 'https://publications.aaahq.org/accounting-review/article/100/6/405/13963/Insights-from-100-Years-of-The-Accounting-Review',
+    'FASB' => 'https://www.fasb.org/news-and-meetings/in-the-news/fasb-issues-standard-on-codification-improvements-423461',
+    'PCAOB' => 'https://pcaobus.org/news-events/news-releases/news-release-detail/pcaob-updates-standard-setting-research-rulemaking-agendas-after-first-ever-public-comment-period',
+    'IMA' => 'https://www.imatoday.org/learn/article/budgeting-for-agentic-ai',
 ];
 $catalog = InternationalSource::catalog();
-$assert(count($catalog) === 19, 'the catalog should retain 17 requested sources plus the existing IAASB and INTHEBLACK sources');
+$assert(count($catalog) === 7, 'the catalog should retain five requested public full-text sources plus the existing IAASB and INTHEBLACK sources');
 foreach ($catalog as $item) {
     $assert(str_starts_with($item['homepage'], 'https://'), $item['key'] . ' catalog entry should have an HTTPS official homepage');
     $assert(trim($item['description']) !== '', $item['key'] . ' catalog entry should have a short description');
@@ -119,15 +122,18 @@ foreach ($verifiedRoutes as $key => $url) {
     $assert($source->supportsUrl($url), $key . ' verified article route should be allowlisted');
 }
 $abstractKeys = array_column(array_filter($catalog, static fn (array $item): bool => $item['mode'] === 'abstract'), 'key');
-$assert(count($abstractKeys) === 9, 'the nine remaining academic journal sources should be marked abstract-only');
-$assert(!$source->supportsUrl('https://publications.aaahq.org/accounting-review/article/100/6/405/13963/Insights-from-100-Years-of-The-Accounting-Review'), 'TAR must be rejected because its article page blocks access with a CAPTCHA');
+$assert($abstractKeys === [], 'every retained source must translate full article bodies rather than abstracts only');
+foreach ($removedRoutes as $name => $url) {
+    $assert(!$source->supportsUrl($url), $name . ' must be rejected because full text is gated or bot access is blocked');
+}
 $assert(!$source->supportsUrl('https://www.sciencedirect.com/journal/accounting-organizations-and-society'), 'publisher journal listings must not be accepted as article pages');
 $assert(!$source->supportsUrl('https://onlinelibrary.wiley.com/journal/1475679x'), 'Wiley journal homepages must not be accepted as article pages');
 $assert(!$source->supportsUrl('https://www.theiia.org/en/standards/2024-standards/global-internal-audit-standards/'), 'standards landing pages must not be mistaken for article pages');
 $catalogMessages = SourceCatalog::messages();
-$assert(count($catalogMessages) === 5, 'official sources should be grouped into five mobile-sized categories');
+$assert(count($catalogMessages) === 2, 'the remaining public full-text sources should appear in two non-empty mobile-sized categories');
 $catalogMessageText = implode("\n", $catalogMessages);
-$assert(!str_contains($catalogMessageText, 'The Accounting Review'), 'removed TAR must not appear in the official sources menu');
+$assert(!str_contains($catalogMessageText, 'The Accounting Review') && !str_contains($catalogMessageText, 'Journal of Accounting and Economics') && !str_contains($catalogMessageText, 'FASB'), 'removed sources must not appear in the official sources menu');
+$assert(str_contains($catalogMessageText, 'متن کاملِ عمومی'), '/sources should state that only complete public article bodies are accepted');
 foreach ($catalog as $item) {
     $assert(str_contains($catalogMessageText, $item['homepage']), $item['key'] . ' official homepage should appear in /sources output');
 }
@@ -137,29 +143,34 @@ foreach ($catalogMessages as $message) {
     $assert($telegramUnits <= 4096, 'each RTL source list message should fit within Telegram UTF-16 message limits');
 }
 
-$abstractHtml = <<<'HTML'
-<!doctype html><html><head><meta property="og:title" content="Sample academic paper"></head><body>
-<h1>Sample academic paper</h1>
-<section class="article-section__abstract"><h2>Abstract</h2><p>This abstract explains the research question, method, results, and contribution in enough detail to provide a standalone scholarly summary for readers.</p></section>
-<article class="article-body"><p>FULL ARTICLE TEXT MUST NOT BE INCLUDED when this journal is configured for abstract-only translation. This is intentionally separate from the abstract.</p></article>
-</body></html>
-HTML;
-$abstractSource = new InternationalSource(static fn (string $url, int $timeout): array => ['status' => 200, 'body' => $abstractHtml]);
-$abstractArticle = $abstractSource->fetch($verifiedRoutes['jae']);
-$abstractText = implode(' ', array_map(static fn (array $block): string => strip_tags((string) ($block['html'] ?? '')), $abstractArticle['blocks']));
-$assert($abstractArticle['content_label'] === 'چکیدهٔ مقاله', 'academic journal output should be labeled as abstract');
-$assert(str_contains($abstractText, 'research question') && !str_contains($abstractText, 'FULL ARTICLE TEXT MUST NOT BE INCLUDED'), 'abstract-only mode must not extract the full text');
-
 $genericArticleHtml = <<<'HTML'
 <!doctype html><html><head><meta property="og:title" content="Verified professional article"></head><body>
 <main><article><div itemprop="articleBody"><p>This verified public professional article contains enough substantive accounting and auditing content to demonstrate that the article body extractor is working for the newly allowlisted source pages.</p></div></article></main>
 </body></html>
 HTML;
 $genericArticleSource = new InternationalSource(static fn (string $url, int $timeout): array => ['status' => 200, 'body' => $genericArticleHtml]);
-foreach (['fasb', 'pcaob', 'iia', 'ima', 'cpajournal', 'acctoday'] as $key) {
+foreach (['iia', 'cpajournal', 'acctoday'] as $key) {
     $parsed = $genericArticleSource->fetch($verifiedRoutes[$key]);
     $assert($parsed['body_empty'] === false && $parsed['title'] === 'Verified professional article', $key . ' should extract a public article body from standard articleBody markup');
+    $assert(($parsed['content_label'] ?? '') === '', $key . ' should be translated as a full article, not labeled as an abstract');
 }
+
+$iiaFullBodyHtml = <<<'HTML'
+<!doctype html><html><head><title>Full internal audit article</title></head><body>
+<main id="content">
+  <h1>Full internal audit article</h1>
+  <div class="block sectionblock col-lg-12 col-md-12 col-sm-12 col-xs-12 displaymode-full">
+    <h2>Introduction</h2><p>This complete public professional article body contains substantive information about internal audit capabilities, practical actions, and implementation considerations for accounting and auditing readers.</p>
+    <h2>Conclusion</h2><p>FINAL COMPLETE ARTICLE SENTINEL: this is the concluding section of the full article.</p>
+  </div>
+  <div itemprop="articleBody">TEASER ONLY: this short summary must not replace the complete article body.</div>
+</main>
+</body></html>
+HTML;
+$iiaSource = new InternationalSource(static fn (string $url, int $timeout): array => ['status' => 200, 'body' => $iiaFullBodyHtml]);
+$iiaArticle = $iiaSource->fetch($verifiedRoutes['iia']);
+$iiaPlainText = implode(' ', array_map(static fn (array $block): string => strip_tags((string) ($block['html'] ?? '')), $iiaArticle['blocks']));
+$assert(str_contains($iiaPlainText, 'FINAL COMPLETE ARTICLE SENTINEL') && !str_contains($iiaPlainText, 'TEASER ONLY'), 'IIA must extract its full-text container and ignore the shorter articleBody teaser');
 
 $assert($source->topicKey($urls['joa']) === $source->topicKey($urls['joa'] . '?utm_source=test'), 'tracking query strings must not change the topic key');
 $assert($source->topicKey($urls['joa']) !== $source->topicKey($urls['ifrs']), 'topic keys must be namespaced by source');

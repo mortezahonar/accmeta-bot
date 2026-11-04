@@ -6,62 +6,12 @@ declare(strict_types=1);
 final class InternationalSource implements ArticleSource
 {
     /**
-     * Every host and route below is tied to a publisher/institution page and a
-     * verified article example. Academic journal sources are abstract-only to
-     * avoid attempting to reproduce subscription content.
+     * Retained sources have verified public full-text examples; each submitted
+     * article must still expose its complete body without a registration wall.
      *
      * @var list<array{key:string,host:string,base:string,homepage:string,name:string,category:string,description:string,mode:string,path:string}>
-    */
+     */
     private const SITES = [
-        [
-            'key' => 'jae', 'host' => 'www.sciencedirect.com', 'base' => 'https://www.sciencedirect.com',
-            'homepage' => 'https://www.sciencedirect.com/journal/journal-of-accounting-and-economics',
-            'name' => 'Journal of Accounting and Economics (JAE)', 'category' => 'مجلات علمی برتر',
-            'description' => 'پژوهش حسابداری با تمرکز بر پیوند حسابداری و اقتصاد؛ فقط چکیدهٔ مقاله ترجمه می‌شود.',
-            'mode' => 'abstract', 'path' => '~^/science/article/pii/S016541[0-9A-Z]+/?$~i',
-        ],
-        [
-            'key' => 'jar', 'host' => 'onlinelibrary.wiley.com', 'base' => 'https://onlinelibrary.wiley.com',
-            'homepage' => 'https://onlinelibrary.wiley.com/journal/1475679x',
-            'name' => 'Journal of Accounting Research (JAR)', 'category' => 'مجلات علمی برتر',
-            'description' => 'پژوهش داوری‌شدهٔ حسابداری و حوزه‌های مرتبط؛ فقط چکیدهٔ مقاله ترجمه می‌شود.',
-            'mode' => 'abstract', 'path' => '~^/doi/(?:abs|full)/10\.1111/1475-679x\.[a-z0-9.-]+/?$~i',
-        ],
-        [
-            'key' => 'car', 'host' => 'onlinelibrary.wiley.com', 'base' => 'https://onlinelibrary.wiley.com',
-            'homepage' => 'https://onlinelibrary.wiley.com/journal/19113846',
-            'name' => 'Contemporary Accounting Research (CAR)', 'category' => 'مجلات علمی برتر',
-            'description' => 'پژوهش دانشگاهی در حسابداری؛ دسترسی متن کامل بسته به مقاله متفاوت است و ربات فقط چکیده را ترجمه می‌کند.',
-            'mode' => 'abstract', 'path' => '~^/doi/(?:abs|full)/10\.1111/1911-3846\.[a-z0-9.-]+/?$~i',
-        ],
-        [
-            'key' => 'rast', 'host' => 'link.springer.com', 'base' => 'https://link.springer.com',
-            'homepage' => 'https://link.springer.com/journal/11142',
-            'name' => 'Review of Accounting Studies (RAST)', 'category' => 'مجلات علمی برتر',
-            'description' => 'پژوهش نظری، تجربی و آزمایشی حسابداری؛ ربات فقط چکیدهٔ صفحهٔ مقاله را ترجمه می‌کند.',
-            'mode' => 'abstract', 'path' => '~^/article/10\.1007/s11142-[^/?]+/?$~i',
-        ],
-        [
-            'key' => 'ajpt', 'host' => 'publications.aaahq.org', 'base' => 'https://publications.aaahq.org',
-            'homepage' => 'https://aaahq.org/Research/Journals/Auditing-A-Journal-of-Practice-and-Theory',
-            'name' => 'Auditing: A Journal of Practice & Theory', 'category' => 'مجلات تخصصی حسابرسی',
-            'description' => 'مجلهٔ پژوهشی انجمن حسابداری آمریکا در حوزهٔ حسابرسی؛ فقط چکیدهٔ مقاله ترجمه می‌شود.',
-            'mode' => 'abstract', 'path' => '~^/ajpt/article/\d+/\d+/\d+/\d+/[^/]+/?$~i',
-        ],
-        [
-            'key' => 'maj', 'host' => 'www.emerald.com', 'base' => 'https://www.emerald.com',
-            'homepage' => 'https://www.emerald.com/maj',
-            'name' => 'Managerial Auditing Journal', 'category' => 'مجلات تخصصی حسابرسی',
-            'description' => 'پژوهش حرفه‌ای و دانشگاهی در حسابرسی و اطمینان‌بخشی؛ ربات فقط چکیده را ترجمه می‌کند.',
-            'mode' => 'abstract', 'path' => '~^/maj/article/\d+/\d+/\d+/\d+/[^/]+/?$~i',
-        ],
-        [
-            'key' => 'ija', 'host' => 'onlinelibrary.wiley.com', 'base' => 'https://onlinelibrary.wiley.com',
-            'homepage' => 'https://onlinelibrary.wiley.com/journal/10991123',
-            'name' => 'International Journal of Auditing', 'category' => 'مجلات تخصصی حسابرسی',
-            'description' => 'پژوهش بین‌المللی در حسابرسی و اطمینان‌بخشی؛ ربات فقط چکیدهٔ مقاله را ترجمه می‌کند.',
-            'mode' => 'abstract', 'path' => '~^/doi/(?:abs|full)/10\.1111/ijau\.[a-z0-9.-]+/?$~i',
-        ],
         [
             'key' => 'ifrs', 'host' => 'ifrs.org', 'base' => 'https://www.ifrs.org',
             'homepage' => 'https://www.ifrs.org/',
@@ -75,20 +25,6 @@ final class InternationalSource implements ArticleSource
             'name' => 'IAASB', 'category' => 'نهادهای استانداردگذار',
             'description' => 'هیئت استانداردهای بین‌المللی حسابرسی و اطمینان‌بخشی؛ خبرها و راهنماهای رسمی پشتیبانی می‌شوند.',
             'mode' => 'article', 'path' => '~^/(?:news-events|news)/[^/]+/[^/]+(?:/[^/]+)*/?$~i',
-        ],
-        [
-            'key' => 'fasb', 'host' => 'www.fasb.org', 'base' => 'https://www.fasb.org',
-            'homepage' => 'https://www.fasb.org/',
-            'name' => 'FASB', 'category' => 'نهادهای استانداردگذار',
-            'description' => 'نهاد تدوین استانداردهای گزارشگری مالی آمریکا برای شرکت‌های غیردولتی؛ خبرهای رسمی پشتیبانی می‌شوند.',
-            'mode' => 'article', 'path' => '~^/news-and-meetings/in-the-news/[^/]+-\d+/?$~i',
-        ],
-        [
-            'key' => 'pcaob', 'host' => 'pcaobus.org', 'base' => 'https://pcaobus.org',
-            'homepage' => 'https://pcaobus.org/',
-            'name' => 'PCAOB', 'category' => 'نهادهای استانداردگذار',
-            'description' => 'نهاد ناظر و استانداردگذار حسابرسی شرکت‌های عمومی در آمریکا؛ خبرها و اطلاعیه‌های رسمی پشتیبانی می‌شوند.',
-            'mode' => 'article', 'path' => '~^/news-events/news-releases/news-release-detail/[^/]+/?$~i',
         ],
         [
             'key' => 'iia', 'host' => 'www.theiia.org', 'base' => 'https://www.theiia.org',
@@ -112,13 +48,6 @@ final class InternationalSource implements ArticleSource
             'mode' => 'article', 'path' => '~^/(?!latest/?$)[^/]+/[^/]+(?:/[^/]+)*/?$~i',
         ],
         [
-            'key' => 'ima', 'host' => 'www.imatoday.org', 'base' => 'https://www.imatoday.org',
-            'homepage' => 'https://www.sfmagazine.com/',
-            'name' => 'Strategic Finance (IMA)', 'category' => 'انجمن‌ها و مجلات حرفه‌ای',
-            'description' => 'مجلهٔ دیجیتال IMA دربارهٔ حسابداری مدیریت، مالی، رهبری و راهبرد؛ مقاله‌های پیوندشده از سایت رسمی مجله پذیرفته می‌شوند.',
-            'mode' => 'article', 'path' => '~^/learn/article/[^/]+/?$~i',
-        ],
-        [
             'key' => 'cpajournal', 'host' => 'www.cpajournal.com', 'base' => 'https://www.cpajournal.com',
             'homepage' => 'https://www.cpajournal.com/',
             'name' => 'The CPA Journal (NYSSCPA)', 'category' => 'انجمن‌ها و مجلات حرفه‌ای',
@@ -131,20 +60,6 @@ final class InternationalSource implements ArticleSource
             'name' => 'Accounting Today', 'category' => 'انجمن‌ها و مجلات حرفه‌ای',
             'description' => 'رسانهٔ خبری و تحلیلی حسابداری حرفه‌ای در موضوعاتی مانند حسابرسی، مالیات، استانداردها و مدیریت مؤسسات.',
             'mode' => 'article', 'path' => '~^/list/[^/]+/?$~i',
-        ],
-        [
-            'key' => 'aos', 'host' => 'www.sciencedirect.com', 'base' => 'https://www.sciencedirect.com',
-            'homepage' => 'https://www.sciencedirect.com/journal/accounting-organizations-and-society',
-            'name' => 'Accounting, Organizations and Society (AOS)', 'category' => 'مجلات معتبر حوزه‌های خاص',
-            'description' => 'مجلهٔ میان‌رشته‌ای دربارهٔ پیوند حسابداری با سازمان‌ها، جامعه و سیاست؛ فقط چکیدهٔ مقاله ترجمه می‌شود.',
-            'mode' => 'abstract', 'path' => '~^/science/article/pii/S036136[0-9A-Z]+/?$~i',
-        ],
-        [
-            'key' => 'japp', 'host' => 'www.sciencedirect.com', 'base' => 'https://www.sciencedirect.com',
-            'homepage' => 'https://www.sciencedirect.com/journal/journal-of-accounting-and-public-policy',
-            'name' => 'Journal of Accounting and Public Policy', 'category' => 'مجلات معتبر حوزه‌های خاص',
-            'description' => 'مجلهٔ پژوهشی دربارهٔ رابطهٔ حسابداری با سیاست‌گذاری عمومی؛ ربات فقط چکیدهٔ مقاله را ترجمه می‌کند.',
-            'mode' => 'abstract', 'path' => '~^/science/article/pii/S027842[0-9A-Z]+/?$~i',
         ],
     ];
 

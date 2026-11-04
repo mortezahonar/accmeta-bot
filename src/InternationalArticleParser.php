@@ -250,15 +250,25 @@ final class InternationalArticleParser
             }
         }
 
+        if ($sourceKey === 'iia') {
+            $fullText = $xpath->query(
+                '//main[@id="content"]//*[contains(concat(" ",normalize-space(@class)," ")," displaymode-full ")]'
+            );
+            if ($fullText !== false) {
+                foreach ($fullText as $node) {
+                    if ($node instanceof DOMElement && $this->normalizeText($node->textContent) !== '') {
+                        return [$node];
+                    }
+                }
+            }
+        }
+
         $queries = match ($sourceKey) {
             'joa' => ['//div[contains(concat(" ",normalize-space(@class)," ")," entry-content ")]'],
             'ifrs' => ['//div[contains(concat(" ",normalize-space(@class)," ")," cmp-text ")]'],
             'iaasb' => ['//div[contains(concat(" ",normalize-space(@class)," ")," news__content-text ")]'],
             'intheblack' => ['//div[contains(concat(" ",normalize-space(@class)," ")," content-rich-text ")]'],
-            'fasb' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," news-release-detail ")]', '//main//article'],
-            'pcaob' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," news-release-content ")]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-body ")]', '//main//article'],
             'iia' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-content ")]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-body ")]', '//main//article'],
-            'ima' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-body ")]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-content ")]', '//main//article'],
             'cpajournal' => ['//*[contains(concat(" ",normalize-space(@class)," ")," entry-content ")]', '//*[@itemprop="articleBody"]', '//article'],
             'acctoday' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-body ")]', '//*[contains(concat(" ",normalize-space(@class)," ")," body-content ")]', '//article'],
             default => [],

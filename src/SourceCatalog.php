@@ -14,10 +14,7 @@ final class SourceCatalog
 
         $messages = [];
         foreach ($groups as $category => $sources) {
-            $lines = [$category];
-            if ($category === 'مجلات علمی برتر' || $category === 'مجلات تخصصی حسابرسی' || $category === 'مجلات معتبر حوزه‌های خاص') {
-                $lines[] = 'برای مجلات علمی، ربات فقط چکیدهٔ مقاله را ترجمه می‌کند؛ دسترسی متن کامل به ناشر و مقاله بستگی دارد.';
-            }
+            $lines = [$category, 'فقط مقاله یا خبر با متن کاملِ عمومی پذیرفته می‌شود.'];
             foreach ($sources as $source) {
                 $lines[] = '';
                 $lines[] = $source['name'];
