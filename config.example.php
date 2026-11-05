@@ -6,11 +6,13 @@ declare(strict_types=1);
 return [
     'bot_token' => 'PASTE_ACCMETA_TELEGRAM_BOT_TOKEN',
     'chat_id' => 'PASTE_TARGET_GROUP_CHAT_ID',
+    'law_chat_username' => 'accmeta',
     'gemini_api_key' => 'PASTE_GEMINI_API_KEY',
     'gemini_model' => 'gemini-3.5-flash,gemini-3.1-flash-lite',
     'fallback_api_key' => 'PASTE_OPTIONAL_FALLBACK_API_KEY',
     'fallback_base_url' => 'https://tokenharbor.ai/v1',
     'fallback_model' => 'deepseek-v4.1-flash:free',
     'proxy' => '',
+    'direct_tax_articles_dir' => __DIR__ . '/data/laws/direct-taxes/articles',
     'allowed_user_ids' => [],
 ];

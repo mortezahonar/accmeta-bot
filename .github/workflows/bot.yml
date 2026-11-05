@@ -71,6 +71,9 @@ jobs:
       - name: RTL direction regression test
         run: php tests/PersianRtlTest.php
 
+      - name: Direct tax law archive regression test
+        run: php tests/DirectTaxLawTest.php
+
       - name: Telegram publication retry regression test
         run: php tests/TelegramRateLimitTest.php
 
@@ -192,16 +195,17 @@ jobs:
             echo "Webhook is already registered to the configured accmeta-hook endpoint."
           fi
 
-      - name: Persist state (same public-repository behavior as JCM)
+      - name: Persist state and cached law articles (same public-repository behavior as JCM)
         if: always()
         run: |
           git config user.name "accmeta-bot"
           git config user.email "accmeta-bot@users.noreply.github.com"
           mkdir -p state
           git add -A state
+          git add -A data/laws/direct-taxes
           if git diff --cached --quiet; then
-            echo "state unchanged"
+            echo "state and law archive unchanged"
             exit 0
           fi
-          git commit -m "state: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git commit -m "state/cache: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push

@@ -11,6 +11,7 @@ $allowedUsers = preg_split('/[\s,]+/', trim((string) (getenv('ACCMETA_ALLOWED_US
 $config = [
     'bot_token' => (string) (getenv('ACCMETA_BOT_TOKEN') ?: ''),
     'chat_id' => (string) (getenv('ACCMETA_CHAT_ID') ?: ''),
+    'law_chat_username' => ltrim((string) (getenv('ACCMETA_LAW_CHAT_USERNAME') ?: 'accmeta'), '@'),
     'gemini_api_key' => (string) (getenv('GEMINI_API_KEY') ?: ''),
     'gemini_model' => (string) (getenv('GEMINI_MODEL') ?: 'gemini-3.5-flash,gemini-3.1-flash-lite'),
     'fallback_api_key' => (string) (getenv('FALLBACK_API_KEY') ?: ''),
@@ -18,6 +19,7 @@ $config = [
     'fallback_model' => (string) (getenv('FALLBACK_MODEL') ?: 'deepseek-v4.1-flash:free'),
     'proxy' => (string) (getenv('ACCMETA_BOT_PROXY') ?: ''),
     'state_dir' => __DIR__ . '/state',
+    'direct_tax_articles_dir' => __DIR__ . '/data/laws/direct-taxes/articles',
     'glossary_path' => (string) (getenv('ACCMETA_GLOSSARY') ?: (__DIR__ . '/data/accounting-glossary.md')),
     'allowed_user_ids' => $allowedUsers,
 ];
