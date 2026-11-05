@@ -18,6 +18,10 @@ on:
         description: "Only check that the Gemini key works (no bot run)"
         type: boolean
         default: false
+      verify_law_group:
+        description: "Read-only check that @Accmeta_bot is an administrator in @accmeta"
+        type: boolean
+        default: false
 
       migrate_webhook:
         description: "Explicitly replace the current Telegram webhook with accmeta-hook"
@@ -161,8 +165,36 @@ jobs:
           ACCMETA_BOT_TOKEN: ${{ secrets.ACCMETA_BOT_TOKEN }}
         run: bash scripts/identify_group_chat.sh
 
+      - name: Verify law group bot admin status (read-only)
+        if: github.event_name == 'workflow_dispatch' && inputs.verify_law_group
+        run: |
+          me=$(curl -sS --fail --max-time 20 "https://api.telegram.org/bot${ACCMETA_BOT_TOKEN}/getMe")
+          bot_id=$(printf '%s' "$me" | jq -er 'select(.ok == true) | .result.id')
+          bot_username=$(printf '%s' "$me" | jq -er 'select(.ok == true) | .result.username' | tr '[:upper:]' '[:lower:]')
+          if [ "$bot_username" != "accmeta_bot" ]; then
+            echo "Telegram verification stopped: configured token is not @Accmeta_bot."
+            exit 1
+          fi
+
+          chat=$(curl -sS --fail --get --max-time 20 \
+            "https://api.telegram.org/bot${ACCMETA_BOT_TOKEN}/getChat" \
+            --data-urlencode 'chat_id=@accmeta')
+          chat_id=$(printf '%s' "$chat" | jq -er 'select(.ok == true and .result.username == "accmeta") | .result.id')
+          chat_type=$(printf '%s' "$chat" | jq -er '.result.type')
+          member=$(curl -sS --fail --get --max-time 20 \
+            "https://api.telegram.org/bot${ACCMETA_BOT_TOKEN}/getChatMember" \
+            --data-urlencode "chat_id=$chat_id" \
+            --data-urlencode "user_id=$bot_id")
+          status=$(printf '%s' "$member" | jq -er 'select(.ok == true) | .result.status')
+
+          printf 'target_group=@accmeta type=%s bot_status=%s\n' "$chat_type" "$status"
+          case "$status" in
+            creator|administrator) echo "law_group_admin_check=passed" ;;
+            *) echo "law_group_admin_check=failed"; exit 1 ;;
+          esac
+
       - name: Webhook health check
-        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.identify_chat)
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.identify_chat && !inputs.verify_law_group)
         env:
           HOOK_URL: ${{ secrets.ACCMETA_HOOK_URL }}
           TELEGRAM_SECRET: ${{ secrets.ACCMETA_TELEGRAM_SECRET }}
