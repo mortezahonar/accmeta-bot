@@ -95,7 +95,6 @@ $verifiedRoutes = [
     'joa' => 'https://www.journalofaccountancy.com/news/2023/nov/how-artificial-intelligence-can-help-save-accounting/',
     'intheblack' => 'https://intheblack.cpaaustralia.com.au/careers-and-workplace/capability-accountants-need-to-build-career-resilience',
     'cpajournal' => 'https://www.cpajournal.com/2026/09/02/evaluating-the-use-of-ai-in-financial-statement-audits/',
-    'acctoday' => 'https://www.accountingtoday.com/list/accounting-in-2026-the-year-ahead-in-numbers',
 ];
 $removedRoutes = [
     'JAE' => 'https://www.sciencedirect.com/science/article/pii/S0165410126000443',
@@ -111,9 +110,10 @@ $removedRoutes = [
     'FASB' => 'https://www.fasb.org/news-and-meetings/in-the-news/fasb-issues-standard-on-codification-improvements-423461',
     'PCAOB' => 'https://pcaobus.org/news-events/news-releases/news-release-detail/pcaob-updates-standard-setting-research-rulemaking-agendas-after-first-ever-public-comment-period',
     'IMA' => 'https://www.imatoday.org/learn/article/budgeting-for-agentic-ai',
+    'Accounting Today' => 'https://www.accountingtoday.com/list/accounting-in-2026-the-year-ahead-in-numbers',
 ];
 $catalog = InternationalSource::catalog();
-$assert(count($catalog) === 7, 'the catalog should retain five requested public full-text sources plus the existing IAASB and INTHEBLACK sources');
+$assert(count($catalog) === 6, 'the catalog should retain four requested public full-text sources plus the existing IAASB and INTHEBLACK sources');
 foreach ($catalog as $item) {
     $assert(str_starts_with($item['homepage'], 'https://'), $item['key'] . ' catalog entry should have an HTTPS official homepage');
     $assert(trim($item['description']) !== '', $item['key'] . ' catalog entry should have a short description');
@@ -132,7 +132,7 @@ $assert(!$source->supportsUrl('https://www.theiia.org/en/standards/2024-standard
 $catalogMessages = SourceCatalog::messages();
 $assert(count($catalogMessages) === 2, 'the remaining public full-text sources should appear in two non-empty mobile-sized categories');
 $catalogMessageText = implode("\n", $catalogMessages);
-$assert(!str_contains($catalogMessageText, 'The Accounting Review') && !str_contains($catalogMessageText, 'Journal of Accounting and Economics') && !str_contains($catalogMessageText, 'FASB'), 'removed sources must not appear in the official sources menu');
+$assert(!str_contains($catalogMessageText, 'The Accounting Review') && !str_contains($catalogMessageText, 'Journal of Accounting and Economics') && !str_contains($catalogMessageText, 'FASB') && !str_contains($catalogMessageText, 'Accounting Today'), 'removed sources must not appear in the official sources menu');
 $assert(str_contains($catalogMessageText, 'متن کاملِ عمومی'), '/sources should state that only complete public article bodies are accepted');
 foreach ($catalog as $item) {
     $assert(str_contains($catalogMessageText, $item['homepage']), $item['key'] . ' official homepage should appear in /sources output');
@@ -149,7 +149,7 @@ $genericArticleHtml = <<<'HTML'
 </body></html>
 HTML;
 $genericArticleSource = new InternationalSource(static fn (string $url, int $timeout): array => ['status' => 200, 'body' => $genericArticleHtml]);
-foreach (['iia', 'cpajournal', 'acctoday'] as $key) {
+foreach (['iia', 'cpajournal'] as $key) {
     $parsed = $genericArticleSource->fetch($verifiedRoutes[$key]);
     $assert($parsed['body_empty'] === false && $parsed['title'] === 'Verified professional article', $key . ' should extract a public article body from standard articleBody markup');
     $assert(($parsed['content_label'] ?? '') === '', $key . ' should be translated as a full article, not labeled as an abstract');

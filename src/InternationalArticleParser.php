@@ -270,7 +270,6 @@ final class InternationalArticleParser
             'intheblack' => ['//div[contains(concat(" ",normalize-space(@class)," ")," content-rich-text ")]'],
             'iia' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-content ")]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-body ")]', '//main//article'],
             'cpajournal' => ['//*[contains(concat(" ",normalize-space(@class)," ")," entry-content ")]', '//*[@itemprop="articleBody"]', '//article'],
-            'acctoday' => ['//*[@itemprop="articleBody"]', '//*[contains(concat(" ",normalize-space(@class)," ")," article-body ")]', '//*[contains(concat(" ",normalize-space(@class)," ")," body-content ")]', '//article'],
             default => [],
         };
 

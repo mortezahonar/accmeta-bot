@@ -54,13 +54,6 @@ final class InternationalSource implements ArticleSource
             'description' => 'نشریهٔ انجمن حسابداران رسمی ایالت نیویورک دربارهٔ حسابداری، حسابرسی، مالیات و موضوعات حرفه‌ای.',
             'mode' => 'article', 'path' => '~^/\d{4}/\d{2}/\d{2}/[^/]+/?$~i',
         ],
-        [
-            'key' => 'acctoday', 'host' => 'www.accountingtoday.com', 'base' => 'https://www.accountingtoday.com',
-            'homepage' => 'https://www.accountingtoday.com/',
-            'name' => 'Accounting Today', 'category' => 'انجمن‌ها و مجلات حرفه‌ای',
-            'description' => 'رسانهٔ خبری و تحلیلی حسابداری حرفه‌ای در موضوعاتی مانند حسابرسی، مالیات، استانداردها و مدیریت مؤسسات.',
-            'mode' => 'article', 'path' => '~^/list/[^/]+/?$~i',
-        ],
     ];
 
     /** @var (\Closure(string, int): array{status: int, body: string})|null */
