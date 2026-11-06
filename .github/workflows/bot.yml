@@ -66,6 +66,9 @@ jobs:
           php tests/GeminiRetryTest.php
           php tests/OpenAiCompatibleRetryTest.php
 
+      - name: Cloudflare Worker regression tests
+        run: node --test tests/worker.test.mjs
+
       - name: Chat ID diagnostic regression test
         run: php tests/ChatIdDiagnosticTest.php
 

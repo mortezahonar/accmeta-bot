@@ -1,0 +1,47 @@
+name: accmeta-law-source-probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe official law source through accmeta-hook
+        env:
+          HOOK_URL: ${{ secrets.ACCMETA_HOOK_URL }}
+          HOOK_SECRET: ${{ secrets.ACCMETA_BOT_SECRET }}
+        run: |
+          set -eu
+          if [ -z "$HOOK_URL" ] || [ -z "$HOOK_SECRET" ]; then
+            echo "Probe stopped: ACCMETA_HOOK_URL or ACCMETA_BOT_SECRET is not configured."
+            exit 1
+          fi
+
+          url="${HOOK_URL%/}/law-source-probe"
+          response_file="$(mktemp)"
+          code=$(curl -sS --max-time 35 -o "$response_file" -w '%{http_code}' \
+            -H "X-Bot-Secret: $HOOK_SECRET" "$url")
+          if [ "$code" != "200" ]; then
+            echo "Probe endpoint failed: HTTP $code."
+            rm -f "$response_file"
+            exit 1
+          fi
+
+          reachable=$(jq -r '.reachable // false' "$response_file")
+          upstream=$(jq -r '.upstreamStatus // "none"' "$response_file")
+          title=$(jq -r '.lawTitleFound // false' "$response_file")
+          article=$(jq -r '.articleOneFound // false' "$response_file")
+          challenge=$(jq -r '.challenge // false' "$response_file")
+          printf 'law_source_probe reachable=%s upstream_status=%s law_title=%s article_1=%s challenge=%s\n' \
+            "$reachable" "$upstream" "$title" "$article" "$challenge"
+          rm -f "$response_file"
+
+          if [ "$reachable" != "true" ]; then
+            echo "The official source is not readable from the Worker; do not enable live first-fetch yet."
+            exit 1
+          fi

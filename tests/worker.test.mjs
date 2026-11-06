@@ -11,6 +11,9 @@ function loadWorker(fetchStub = async () => new Response('ok', { status: 200 }))
     URL,
     Request,
     Response,
+    AbortController,
+    setTimeout,
+    clearTimeout,
     crypto: { randomUUID: () => '12345678-1234-1234-1234-123456789abc' },
     fetch: fetchStub,
   };
@@ -147,4 +150,83 @@ test('answers health checks without processing them as updates', async () => {
   const response = await worker.fetch(new Request('https://accmeta-hook.example.workers.dev/'), makeEnv().env);
   assert.equal(response.status, 200);
   assert.equal(await response.text(), 'ok');
+});
+
+test('protects the law-source probe and does not fetch without the bot secret', async () => {
+  let fetched = false;
+  const worker = loadWorker(async () => {
+    fetched = true;
+    return new Response('<title>قانون مالیات‌های مستقیم</title> ماده ۱', { status: 200 });
+  });
+  const { env } = makeEnv();
+  const response = await worker.fetch(
+    new Request('https://accmeta-hook.example.workers.dev/law-source-probe'),
+    env,
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal(fetched, false);
+});
+
+test('refuses requests when the repository binding is not the Accmeta target', async () => {
+  let fetched = false;
+  const worker = loadWorker(async () => {
+    fetched = true;
+    return new Response('<title>قانون مالیات‌های مستقیم</title><p>ماده ۱</p>', { status: 200 });
+  });
+  const { env } = makeEnv();
+  env.REPO = 'another-owner/another-repository';
+  const response = await worker.fetch(
+    new Request('https://accmeta-hook.example.workers.dev/law-source-probe', {
+      headers: { 'X-Bot-Secret': 'workflow-secret-test' },
+    }),
+    env,
+  );
+
+  assert.equal(response.status, 500);
+  assert.equal(fetched, false);
+});
+
+test('probes only the official direct-tax page and returns markers, not its text', async () => {
+  let fetchedUrl = '';
+  let fetchedOptions;
+  const worker = loadWorker(async (url, options) => {
+    fetchedUrl = url;
+    fetchedOptions = options;
+    return new Response('<title>قانون مالیات‌های مستقیم</title><p>ماده ۱ - متن نمونه محرمانه نیست</p>', { status: 200 });
+  });
+  const { env } = makeEnv();
+  const response = await worker.fetch(
+    new Request('https://accmeta-hook.example.workers.dev/law-source-probe', {
+      headers: { 'X-Bot-Secret': 'workflow-secret-test' },
+    }),
+    env,
+  );
+  const result = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(fetchedUrl, 'https://qavanin.ir/Law/TreeText/?IDS=892583840653829785');
+  assert.equal(fetchedOptions.method, 'GET');
+  assert.equal(result.reachable, true);
+  assert.equal(result.upstreamStatus, 200);
+  assert.equal(result.lawTitleFound, true);
+  assert.equal(result.articleOneFound, true);
+  assert.equal(result.challenge, false);
+  assert.equal(JSON.stringify(result).includes('متن نمونه'), false);
+});
+
+test('marks a challenge page as unreachable without returning its content', async () => {
+  const worker = loadWorker(async () => new Response('captcha challenge-platform', { status: 200 }));
+  const { env } = makeEnv();
+  const response = await worker.fetch(
+    new Request('https://accmeta-hook.example.workers.dev/law-source-probe', {
+      headers: { 'X-Bot-Secret': 'workflow-secret-test' },
+    }),
+    env,
+  );
+  const result = await response.json();
+
+  assert.equal(result.reachable, false);
+  assert.equal(result.challenge, true);
+  assert.equal(JSON.stringify(result).includes('captcha'), false);
 });
