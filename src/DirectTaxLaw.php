@@ -25,13 +25,13 @@ final class DirectTaxLaw
         $this->fetcher = $fetcher === null ? null : Closure::fromCallable($fetcher);
     }
 
-    /** Return the one unambiguous “م x ق م م” article request in a message. */
+    /** Return one unambiguous “م x ق م م” or “ماده x ق م م” request. */
     public static function requestedArticle(string $text): ?int
     {
         $text = Persian::latinDigits($text);
         $matches = [];
         preg_match_all(
-            '/(?<![\p{L}\p{N}])م\s*([0-9]+)\s*ق\s*م\s*م(?![\p{L}\p{N}])/u',
+            '/(?<![\p{L}\p{N}])(?:ماده[\x{0654}\x{200C}]?|م)\s*([0-9]+)\s*ق\s*م\s*م(?![\p{L}\p{N}])/u',
             $text,
             $matches
         );
