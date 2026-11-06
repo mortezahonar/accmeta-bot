@@ -193,7 +193,10 @@ test('probes only the official direct-tax page and returns markers, not its text
   const worker = loadWorker(async (url, options) => {
     fetchedUrl = url;
     fetchedOptions = options;
-    return new Response('<title>قانون مالیات‌های مستقیم</title><p>ماده ۱ - متن نمونه محرمانه نیست</p>', { status: 200 });
+    return new Response('<title>قانون مالیات‌های مستقیم</title><p>ماده ۱ - متن نمونه محرمانه نیست</p>', {
+      status: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
   });
   const { env } = makeEnv();
   const response = await worker.fetch(
@@ -211,6 +214,9 @@ test('probes only the official direct-tax page and returns markers, not its text
   assert.equal(result.upstreamStatus, 200);
   assert.equal(result.lawTitleFound, true);
   assert.equal(result.articleOneFound, true);
+  assert.equal(result.contentType, 'text/html; charset=utf-8');
+  assert.equal(result.pageTitle, 'قانون مالیات‌های مستقیم');
+  assert.equal(result.bodyCharacters > 0, true);
   assert.equal(result.challenge, false);
   assert.equal(JSON.stringify(result).includes('متن نمونه'), false);
 });

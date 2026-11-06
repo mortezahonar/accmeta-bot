@@ -37,8 +37,11 @@ jobs:
           title=$(jq -r '.lawTitleFound // false' "$response_file")
           article=$(jq -r '.articleOneFound // false' "$response_file")
           challenge=$(jq -r '.challenge // false' "$response_file")
-          printf 'law_source_probe reachable=%s upstream_status=%s law_title=%s article_1=%s challenge=%s\n' \
-            "$reachable" "$upstream" "$title" "$article" "$challenge"
+          characters=$(jq -r '.bodyCharacters // 0' "$response_file")
+          content_type=$(jq -r '.contentType // ""' "$response_file")
+          page_title=$(jq -r '.pageTitle // ""' "$response_file")
+          printf 'law_source_probe reachable=%s upstream_status=%s title_found=%s article_1=%s challenge=%s characters=%s content_type=%s page_title=%s\n' \
+            "$reachable" "$upstream" "$title" "$article" "$challenge" "$characters" "$content_type" "$page_title"
           rm -f "$response_file"
 
           if [ "$reachable" != "true" ]; then

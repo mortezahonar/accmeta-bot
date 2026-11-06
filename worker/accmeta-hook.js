@@ -80,6 +80,9 @@ async function probeDirectTaxSource(request, env) {
       signal: controller.signal,
     });
     const body = await upstream.text();
+    const contentType = (upstream.headers.get('content-type') || '').slice(0, 80);
+    const titleMatch = body.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+    const pageTitle = (titleMatch?.[1] || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
     const normalizedText = body
       .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
       .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
@@ -96,7 +99,9 @@ async function probeDirectTaxSource(request, env) {
     return json({
       reachable,
       upstreamStatus: upstream.status,
-      bytes: body.length,
+      bodyCharacters: body.length,
+      contentType,
+      pageTitle,
       lawTitleFound,
       articleOneFound,
       challenge,
@@ -105,7 +110,9 @@ async function probeDirectTaxSource(request, env) {
     return json({
       reachable: false,
       upstreamStatus: null,
-      bytes: 0,
+      bodyCharacters: 0,
+      contentType: '',
+      pageTitle: '',
       lawTitleFound: false,
       articleOneFound: false,
       challenge: false,
