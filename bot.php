@@ -22,6 +22,8 @@ require __DIR__ . '/src/StartCommand.php';
 require __DIR__ . '/src/ArticleSourceRegistry.php';
 require __DIR__ . '/src/ArticleService.php';
 require __DIR__ . '/src/DirectTaxLaw.php';
+require __DIR__ . '/src/LawArticleRequest.php';
+require __DIR__ . '/src/LocalLawArchive.php';
 
 $config = require __DIR__ . '/config.php';
 
@@ -95,6 +97,7 @@ if ((string) $config['fallback_api_key'] !== '') {
 $generator = new FallbackGenerator(...$generators);
 $store = new Store($stateDir);
 $directTaxLaw = new DirectTaxLaw((string) ($config['direct_tax_articles_dir'] ?? (__DIR__ . '/data/laws/direct-taxes/articles')));
+$localLawArchive = new LocalLawArchive(__DIR__ . '/data/laws');
 $lawChatUsername = strtolower((string) ($config['law_chat_username'] ?? 'accmeta'));
 
 $systemPrompt = (string) file_get_contents(__DIR__ . '/data/translate_system.txt');
@@ -260,6 +263,10 @@ function handleUpdate(array $update): void
     $sourceChat = (string) ($update['message']['chat']['id'] ?? $update['callback_query']['message']['chat']['id'] ?? '');
 
     if (isset($update['message']) && handleDirectTaxLawMessage($update['message'])) {
+        return;
+    }
+
+    if (isset($update['message']) && handleAdditionalLawMessage($update['message'])) {
         return;
     }
 
@@ -477,6 +484,15 @@ function handleDirectTaxLawMessage(array $message): bool
         return true;
     }
 
+    if (LawArticleRequest::hasMultipleRecognizedRequests($text)) {
+        $telegram->sendMessage(
+            $chatId,
+            Persian::rtl('در هر پیام فقط یک ماده یا استاندارد را درخواست کنید؛ شمارهٔ انتخاب‌شده حدس زده نمی‌شود.'),
+            isset($message['message_thread_id']) ? (int) $message['message_thread_id'] : null
+        );
+        return true;
+    }
+
     try {
         $article = $directTaxLaw->getArticle($articleNumber, $isRepeated);
     } catch (Throwable) {
@@ -540,6 +556,142 @@ function handleDirectTaxLawMessage(array $message): bool
             . ($isRepeated ? '-mokarrar' : '') . ' parts=' . $partCount);
     } catch (Throwable) {
         $log('direct-tax article delivery failed; details suppressed');
+    }
+
+    return true;
+}
+
+/** Handle local-first requests for laws and standards outside direct taxation. */
+function handleAdditionalLawMessage(array $message): bool
+{
+    global $telegram, $localLawArchive, $lawChatUsername, $log;
+
+    $chat = is_array($message['chat'] ?? null) ? $message['chat'] : [];
+    $chatType = (string) ($chat['type'] ?? '');
+    $expectedUsername = ltrim(strtolower((string) $lawChatUsername), '@');
+
+    if ($expectedUsername === ''
+        || strtolower((string) ($chat['username'] ?? '')) !== $expectedUsername
+        || !in_array($chatType, ['group', 'supergroup'], true)
+    ) {
+        return false;
+    }
+
+    $text = $message['text'] ?? $message['caption'] ?? null;
+    if (!is_string($text)) {
+        return false;
+    }
+
+    $hasMultipleRequests = LawArticleRequest::hasMultipleRecognizedRequests($text);
+    $request = LawArticleRequest::parse($text);
+    if ($request === null && !$hasMultipleRequests) {
+        return false;
+    }
+
+    $chatId = (string) ($chat['id'] ?? '');
+    if ($chatId === '') {
+        return true;
+    }
+
+    $userId = (int) ($message['from']['id'] ?? 0);
+    $senderChatId = (string) ($message['sender_chat']['id'] ?? '');
+    $isAdministrator = $senderChatId !== '' && $senderChatId === $chatId;
+
+    if (!$isAdministrator && $userId > 0 && !($message['from']['is_bot'] ?? false)) {
+        try {
+            $member = $telegram->call('getChatMember', [
+                'chat_id' => $chatId,
+                'user_id' => $userId,
+            ]);
+            $isAdministrator = is_array($member)
+                && DirectTaxLaw::isAdministratorStatus((string) ($member['status'] ?? ''));
+        } catch (Throwable) {
+            $log('law request ignored: administrator status could not be verified');
+            return true;
+        }
+    }
+
+    if (!$isAdministrator) {
+        $log('law request ignored: sender is not a group administrator');
+        return true;
+    }
+
+    $threadId = isset($message['message_thread_id']) ? (int) $message['message_thread_id'] : null;
+    if ($hasMultipleRequests || (is_array($request) && isset($request['ambiguous']))) {
+        $telegram->sendMessage(
+            $chatId,
+            Persian::rtl('در هر پیام فقط یک ماده یا استاندارد را درخواست کنید؛ شمارهٔ انتخاب‌شده حدس زده نمی‌شود.'),
+            $threadId
+        );
+        return true;
+    }
+
+    $law = $request['law'];
+    $number = $request['number'];
+    $title = LawArticleRequest::title($law) ?? 'این دسته';
+    if (!LawArticleRequest::isReady($law)) {
+        $telegram->sendMessage(
+            $chatId,
+            Persian::rtl('فرمان «' . $title . '» هنوز فعال نشده است؛ متن کامل و نسخهٔ جاری از منبع رسمی به‌طور قابل‌راستی‌آزمایی آماده نیست. متن حدسی ارسال نمی‌شود.'),
+            $threadId
+        );
+        return true;
+    }
+
+    try {
+        $article = $localLawArchive->getArticle($law, $number);
+    } catch (Throwable) {
+        $log('law lookup failed: committed official archive was unavailable');
+        $telegram->sendMessage(
+            $chatId,
+            Persian::rtl('آرشیو رسمی محلی در حال حاضر قابل خواندن نیست. برای جلوگیری از ارسال متن ناقص، پاسخی از منبع زنده جایگزین نشد.'),
+            $threadId
+        );
+        return true;
+    }
+
+    if ($article === null) {
+        $requestedName = 'مادهٔ ' . Persian::faDigits((string) $number);
+        $telegram->sendMessage(
+            $chatId,
+            Persian::rtl(
+                'سرعنوان دقیق «' . $requestedName . '» از «' . $title . '» در نسخهٔ رسمی ذخیره‌شده پیدا نشد. '
+                . 'از این نبودن، منسوخی یا وضعیت دیگری نتیجه‌گیری نمی‌شود.'
+                . "\nمنبع رسمی: " . (LocalLawArchive::laws()[$law]['source_url'] ?? '')
+            ),
+            $threadId
+        );
+        return true;
+    }
+
+    $parts = DirectTaxLaw::splitForTelegram($article['text'], 3000);
+    $partCount = count($parts);
+    try {
+        foreach ($parts as $index => $part) {
+            $label = 'مادهٔ ' . Persian::faDigits((string) $number) . ' — ' . $title;
+            if ($partCount > 1) {
+                $label .= ' — بخش ' . Persian::faDigits((string) ($index + 1))
+                    . ' از ' . Persian::faDigits((string) $partCount);
+            }
+            $body = $label . "\n" . $part;
+            if ($index === $partCount - 1) {
+                $body .= "\n\nمنبع رسمی: " . $article['source_url']
+                    . "\nتاریخ برداشت نسخه از منبع: " . Persian::faDigits($article['retrieved_at'])
+                    . "\nاین تاریخ، تاریخ ثبت نسخه است و به‌تنهایی ادعای جاری‌بودن پس از آن تاریخ نیست.";
+            }
+
+            TelegramRateLimit::call(
+                static fn (): array => $telegram->sendMessage($chatId, Persian::rtl($body), $threadId),
+                null,
+                60
+            );
+            if ($index < $partCount - 1) {
+                sleep(1);
+            }
+        }
+        $log('official law article served from local archive; law=' . $law . ' article=' . $number . ' parts=' . $partCount);
+    } catch (Throwable) {
+        $log('official law article delivery failed; details suppressed');
     }
 
     return true;

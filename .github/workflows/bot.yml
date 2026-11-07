@@ -81,6 +81,11 @@ jobs:
       - name: Direct tax law archive regression test
         run: php tests/DirectTaxLawTest.php
 
+      - name: Unified law request and local archive regression tests
+        run: |
+          php tests/LawArticleRequestTest.php
+          php tests/LocalLawArchiveTest.php
+
       - name: Telegram publication retry regression test
         run: php tests/TelegramRateLimitTest.php
 
@@ -237,7 +242,7 @@ jobs:
           git config user.email "accmeta-bot@users.noreply.github.com"
           mkdir -p state
           git add -A state
-          git add -A data/laws/direct-taxes
+          git add -A data/laws/direct-taxes data/laws/value-added-tax data/laws/social-security
           if git diff --cached --quiet; then
             echo "state and law archive unchanged"
             exit 0
