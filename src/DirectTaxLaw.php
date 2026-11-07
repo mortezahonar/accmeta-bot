@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 /**
- * Local-first access to the consolidated Direct Tax Law.
- * A source response is cached only after the law title and requested article
- * heading have both been validated. Failed/challenge pages are never stored.
+ * دسترسی محلی به متن تنقیح‌شدهٔ قانون مالیات‌های مستقیم.
+ * فایل ماده و نسخهٔ رسمی ذخیره‌شده پیش از دریافت زنده بررسی می‌شوند.
+ * پاسخ نامعتبر یا صفحهٔ محدودیت دسترسی هرگز ذخیره نمی‌شود.
  */
 final class DirectTaxLaw
 {
@@ -13,6 +13,7 @@ final class DirectTaxLaw
     public const LAW_TITLE = 'قانون مالیات‌های مستقیم';
     private const SOURCE_NAME = 'سامانه ملی قوانین و مقررات جمهوری اسلامی ایران';
     private const MAX_ARTICLE_NUMBER = 1000;
+    private const SNAPSHOT_RETRIEVED_AT = '2026-11-06';
 
     /** @var Closure(string):array{status:int,body:string}|null */
     private ?Closure $fetcher;
@@ -54,8 +55,8 @@ final class DirectTaxLaw
     }
 
     /**
-     * Read a cached article or fetch it once from the official source and cache
-     * the validated result for future offline lookups.
+     * ابتدا cache ماده و سپس نسخهٔ رسمی ذخیره‌شده را می‌خواند.
+     * فقط اگر ماده در هیچ‌کدام نبود، دریافت زنده و cache معتبر را امتحان می‌کند.
      *
      * @return array{article_number:int,text:string,source:string,source_url:string,retrieved_at:string}|null
      */
@@ -68,6 +69,29 @@ final class DirectTaxLaw
         $path = $this->articlePath($number);
         if (is_file($path)) {
             return $this->readArticle($path, $number);
+        }
+
+        $snapshotPath = $this->sourceArchivePath();
+        if (is_file($snapshotPath)) {
+            $snapshot = file_get_contents($snapshotPath);
+            if (!is_string($snapshot)) {
+                throw new RuntimeException('The local official-law snapshot could not be read.');
+            }
+
+            $articleText = self::extractArticleFromSnapshot($snapshot, $number);
+            if ($articleText !== null) {
+                $record = [
+                    'article_number' => $number,
+                    'text' => $articleText,
+                    'source' => self::SOURCE_NAME,
+                    'source_url' => self::SOURCE_URL,
+                    'retrieved_at' => self::SNAPSHOT_RETRIEVED_AT,
+                ];
+
+                $this->writeArticle($path, $record);
+
+                return $record;
+            }
         }
 
         $response = $this->fetcher !== null
@@ -168,6 +192,74 @@ final class DirectTaxLaw
         return $article;
     }
 
+    /** Extract one unambiguous article from the verified, committed Markdown snapshot. */
+    public static function extractArticleFromSnapshot(string $snapshot, int $requestedNumber): ?string
+    {
+        if ($requestedNumber < 1 || $requestedNumber > self::MAX_ARTICLE_NUMBER) {
+            return null;
+        }
+
+        $normalizedTitleText = str_replace(['ي', 'ك', '‌', "\u{200F}"], ['ی', 'ک', '', ''], $snapshot);
+        $normalizedTitleText = preg_replace('/[^\p{L}]+/u', '', $normalizedTitleText) ?? $normalizedTitleText;
+        if (!str_contains($normalizedTitleText, 'قانونمالیاتهایمستقیم')) {
+            throw new RuntimeException('The local official-law snapshot title could not be verified.');
+        }
+
+        $lines = preg_split('/\R/u', $snapshot);
+        if (!is_array($lines)) {
+            throw new RuntimeException('The local official-law snapshot could not be parsed.');
+        }
+
+        $headings = [];
+        foreach ($lines as $lineNumber => $line) {
+            $headingLine = preg_replace('/^[\s\p{Cf}]+/u', '', $line) ?? $line;
+            if (preg_match('/^ماده\s*([0-9۰-۹٠-٩]+)(?=$|[\s\-ـ:：\(（])/u', $headingLine, $match) !== 1) {
+                continue;
+            }
+
+            $headings[] = [
+                'number' => (int) self::toLatinDigits($match[1]),
+                'line' => $lineNumber,
+            ];
+        }
+
+        $selected = array_values(array_filter(
+            $headings,
+            static fn (array $heading): bool => $heading['number'] === $requestedNumber
+        ));
+        if ($selected === []) {
+            return null;
+        }
+        if (count($selected) !== 1) {
+            throw new RuntimeException('The local official-law snapshot has multiple headings for this article.');
+        }
+
+        $start = $selected[0]['line'];
+        $end = count($lines);
+        foreach ($headings as $heading) {
+            if ($heading['line'] > $start) {
+                $end = $heading['line'];
+                break;
+            }
+        }
+
+        $article = implode("\n", array_slice($lines, $start, $end - $start));
+        $article = preg_replace('/\[([^\]\r\n]+)\]\([^)\r\n]+\)/u', '$1', $article) ?? $article;
+        $article = str_replace('\\-', '-', $article);
+        $article = preg_replace('/[ \t]+/u', ' ', $article) ?? $article;
+        $article = preg_replace('/[ \t]*\n[ \t]*/u', "\n", $article) ?? $article;
+        $article = preg_replace('/\n{3,}/u', "\n\n", $article) ?? $article;
+        $article = preg_replace('/^[\s\p{Cf}]+/u', '', $article) ?? $article;
+        $article = trim($article);
+
+        $length = mb_strlen($article, 'UTF-8');
+        if ($length < 12 || $length > 50000) {
+            throw new RuntimeException('The extracted snapshot article length failed validation.');
+        }
+
+        return $article;
+    }
+
     /** Split text without cutting a UTF-8 character; count Telegram UTF-16 units. */
     public static function splitForTelegram(string $text, int $maxUtf16Units = 3300): array
     {
@@ -215,6 +307,12 @@ final class DirectTaxLaw
     {
         return rtrim($this->articlesDirectory, DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR . 'article-' . $number . '.json';
+    }
+
+    private function sourceArchivePath(): string
+    {
+        return dirname(rtrim($this->articlesDirectory, DIRECTORY_SEPARATOR))
+            . DIRECTORY_SEPARATOR . 'source.md';
     }
 
     /** @return array{article_number:int,text:string,source:string,source_url:string,retrieved_at:string} */

@@ -73,6 +73,47 @@ $offlineRepository = new DirectTaxLaw($temporary, static function (): array {
 $cached = $offlineRepository->getArticle(2);
 lawAssert(is_array($cached) && $cached['text'] === $article['text'], 'cached lookup did not work without network');
 
+$snapshotRoot = sys_get_temp_dir() . '/accmeta-direct-tax-snapshot-test-' . bin2hex(random_bytes(5));
+mkdir($snapshotRoot . '/articles', 0775, true);
+$officialSnapshot = __DIR__ . '/../data/laws/direct-taxes/source.md';
+lawAssert(is_file($officialSnapshot), 'نسخهٔ رسمی ذخیره‌شده در مخزن پیدا نشد');
+lawAssert(copy($officialSnapshot, $snapshotRoot . '/source.md'), 'نسخهٔ رسمی برای آزمون کپی نشد');
+$snapshotFetchCount = 0;
+$snapshotRepository = new DirectTaxLaw($snapshotRoot . '/articles', static function () use (&$snapshotFetchCount): array {
+    $snapshotFetchCount++;
+    throw new RuntimeException('برای مادهٔ موجود در نسخهٔ ذخیره‌شده نباید شبکه فراخوانی شود.');
+});
+
+foreach ([18, 19, 20, 30] as $number) {
+    $snapshotArticle = $snapshotRepository->getArticle($number);
+    lawAssert(is_array($snapshotArticle), 'مادهٔ ' . $number . ' از نسخهٔ رسمی ذخیره‌شده استخراج نشد');
+    lawAssert(str_starts_with($snapshotArticle['text'], 'ماده'), 'سرعنوان مادهٔ ' . $number . ' در پاسخ نیست');
+    lawAssert(is_file($snapshotRoot . '/articles/article-' . $number . '.json'), 'مادهٔ ' . $number . ' در cache محلی ثبت نشد');
+    lawAssert($snapshotArticle['retrieved_at'] === '2026-11-06', 'تاریخ نسخهٔ رسمی برای مادهٔ ' . $number . ' نادرست است');
+}
+lawAssert(str_contains($snapshotRepository->getArticle(19)['text'], 'منسوخه'), 'وضعیت منسوخ مادهٔ ۱۹ حفظ نشد');
+lawAssert(str_contains($snapshotRepository->getArticle(20)['text'], 'منسوخه'), 'وضعیت منسوخ مادهٔ ۲۰ حفظ نشد');
+lawAssert(str_contains($snapshotRepository->getArticle(30)['text'], 'منسوخه'), 'وضعیت منسوخ مادهٔ ۳۰ حفظ نشد');
+lawAssert($snapshotFetchCount === 0, 'برای مواد موجود در snapshot نباید درخواست شبکه شود');
+
+$ambiguousArticleRejected = false;
+try {
+    $snapshotRepository->getArticle(40);
+} catch (RuntimeException) {
+    $ambiguousArticleRejected = true;
+}
+lawAssert($ambiguousArticleRejected, 'مادهٔ دارای چند سرعنوان مبهم نباید حدس زده شود');
+lawAssert($snapshotFetchCount === 0, 'مادهٔ مبهم نباید باعث درخواست شبکه شود');
+
+unlink($snapshotRoot . '/source.md');
+$snapshotCacheHit = $snapshotRepository->getArticle(18);
+lawAssert(is_array($snapshotCacheHit) && $snapshotCacheHit['article_number'] === 18, 'پس از cache باید پاسخ بدون نسخهٔ منبع محلی هم کار کند');
+foreach (glob($snapshotRoot . '/articles/*') ?: [] as $file) {
+    @unlink($file);
+}
+@rmdir($snapshotRoot . '/articles');
+@rmdir($snapshotRoot);
+
 $blockedDirectory = $temporary . '-blocked';
 $blockedRepository = new DirectTaxLaw($blockedDirectory, static fn (string $url): array => [
     'status' => 200,
