@@ -676,8 +676,7 @@ function handleAdditionalLawMessage(array $message): bool
             $body = $label . "\n" . $part;
             if ($index === $partCount - 1) {
                 $body .= "\n\nمنبع رسمی: " . $article['source_url']
-                    . "\nتاریخ برداشت نسخه از منبع: " . Persian::faDigits($article['retrieved_at'])
-                    . "\nاین تاریخ، تاریخ ثبت نسخه است و به‌تنهایی ادعای جاری‌بودن پس از آن تاریخ نیست.";
+                    . "\nتاریخ برداشت نسخه از منبع: " . Persian::faDigits($article['retrieved_at']);
             }
 
             TelegramRateLimit::call(
