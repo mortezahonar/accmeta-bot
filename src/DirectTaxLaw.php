@@ -29,10 +29,19 @@ final class DirectTaxLaw
     /** Return one unambiguous “م x ق م م” or “ماده x ق م م” request. */
     public static function requestedArticle(string $text): ?int
     {
+        $request = self::requestedArticleIdentifier($text);
+
+        return $request['number'] ?? null;
+    }
+
+    /** @return array{number:int,is_repeated:bool}|null */
+    public static function requestedArticleIdentifier(string $text): ?array
+    {
         $text = Persian::latinDigits($text);
+        $text = str_replace(['ي', 'ك'], ['ی', 'ک'], $text);
         $matches = [];
         preg_match_all(
-            '/(?<![\p{L}\p{N}])(?:ماده[\x{0654}\x{200C}]?|م)\s*([0-9]+)\s*ق\s*م\s*م(?![\p{L}\p{N}])/u',
+            '/(?<![\p{L}\p{N}])(?:ماده[\x{0654}\x{200C}]?|م)\s*([0-9]+)\s*(مکرر)?\s*ق\s*م\s*م(?![\p{L}\p{N}])/u',
             $text,
             $matches
         );
@@ -46,7 +55,10 @@ final class DirectTaxLaw
             return null;
         }
 
-        return $number;
+        return [
+            'number' => $number,
+            'is_repeated' => !empty($matches[2][0]),
+        ];
     }
 
     public static function isAdministratorStatus(string $status): bool
@@ -58,17 +70,17 @@ final class DirectTaxLaw
      * ابتدا cache ماده و سپس نسخهٔ رسمی ذخیره‌شده را می‌خواند.
      * فقط اگر ماده در هیچ‌کدام نبود، دریافت زنده و cache معتبر را امتحان می‌کند.
      *
-     * @return array{article_number:int,text:string,source:string,source_url:string,retrieved_at:string}|null
+     * @return array{article_number:int,is_repeated:bool,text:string,source:string,source_url:string,retrieved_at:string}|null
      */
-    public function getArticle(int $number): ?array
+    public function getArticle(int $number, bool $isRepeated = false): ?array
     {
         if ($number < 1 || $number > self::MAX_ARTICLE_NUMBER) {
             return null;
         }
 
-        $path = $this->articlePath($number);
+        $path = $this->articlePath($number, $isRepeated);
         if (is_file($path)) {
-            return $this->readArticle($path, $number);
+            return $this->readArticle($path, $number, $isRepeated);
         }
 
         $snapshotPath = $this->sourceArchivePath();
@@ -78,10 +90,11 @@ final class DirectTaxLaw
                 throw new RuntimeException('The local official-law snapshot could not be read.');
             }
 
-            $articleText = self::extractArticleFromSnapshot($snapshot, $number);
+            $articleText = self::extractArticleVariantFromSnapshot($snapshot, $number, $isRepeated);
             if ($articleText !== null) {
                 $record = [
                     'article_number' => $number,
+                    'is_repeated' => $isRepeated,
                     'text' => $articleText,
                     'source' => self::SOURCE_NAME,
                     'source_url' => self::SOURCE_URL,
@@ -92,6 +105,14 @@ final class DirectTaxLaw
 
                 return $record;
             }
+
+            // The committed official snapshot is the complete lookup authority
+            // for this law; do not turn a missing heading into a network error.
+            return null;
+        }
+
+        if ($isRepeated) {
+            return null;
         }
 
         $response = $this->fetcher !== null
@@ -109,6 +130,7 @@ final class DirectTaxLaw
 
         $record = [
             'article_number' => $number,
+            'is_repeated' => false,
             'text' => $articleText,
             'source' => self::SOURCE_NAME,
             'source_url' => self::SOURCE_URL,
@@ -195,6 +217,15 @@ final class DirectTaxLaw
     /** Extract one unambiguous article from the verified, committed Markdown snapshot. */
     public static function extractArticleFromSnapshot(string $snapshot, int $requestedNumber): ?string
     {
+        return self::extractArticleVariantFromSnapshot($snapshot, $requestedNumber, false);
+    }
+
+    /** Extract exact base or «مکرر» headings, preserving every officially listed version. */
+    public static function extractArticleVariantFromSnapshot(
+        string $snapshot,
+        int $requestedNumber,
+        bool $isRepeated = false
+    ): ?string {
         if ($requestedNumber < 1 || $requestedNumber > self::MAX_ARTICLE_NUMBER) {
             return null;
         }
@@ -211,53 +242,85 @@ final class DirectTaxLaw
         }
 
         $headings = [];
+        $sectionContext = null;
         foreach ($lines as $lineNumber => $line) {
-            $headingLine = preg_replace('/^[\s\p{Cf}]+/u', '', $line) ?? $line;
-            if (preg_match('/^ماده\s*([0-9۰-۹٠-٩]+)(?=$|[\s\-ـ:：\(（])/u', $headingLine, $match) !== 1) {
+            $rawHeadingLine = preg_replace('/^[\s\p{Cf}#]+/u', '', $line) ?? $line;
+            $normalizedLine = str_replace(['ي', 'ك', '‌', "\u{200F}"], ['ی', 'ک', '', ''], $rawHeadingLine);
+            $headingLine = preg_replace('/^[\s\p{Cf}#]+/u', '', $normalizedLine) ?? $normalizedLine;
+            if (preg_match('/^(?:بخش|فصل|باب)\s+/u', $headingLine) === 1) {
+                $sectionContext = trim($rawHeadingLine);
+                continue;
+            }
+
+            if (preg_match('/^ماده\s*([0-9۰-۹٠-٩]+)(?:\s*(مکرر))?(?=$|[\s\-ـ:：\(（])/u', $headingLine, $match) !== 1) {
                 continue;
             }
 
             $headings[] = [
                 'number' => (int) self::toLatinDigits($match[1]),
+                'is_repeated' => !empty($match[2]),
                 'line' => $lineNumber,
+                'section_context' => $sectionContext,
             ];
         }
 
         $selected = array_values(array_filter(
             $headings,
             static fn (array $heading): bool => $heading['number'] === $requestedNumber
+                && $heading['is_repeated'] === $isRepeated
         ));
         if ($selected === []) {
             return null;
         }
-        if (count($selected) !== 1) {
-            throw new RuntimeException('The local official-law snapshot has multiple headings for this article.');
-        }
 
-        $start = $selected[0]['line'];
-        $end = count($lines);
-        foreach ($headings as $heading) {
-            if ($heading['line'] > $start) {
-                $end = $heading['line'];
-                break;
+        $articles = [];
+        foreach ($selected as $selectedHeading) {
+            $start = $selectedHeading['line'];
+            $end = count($lines);
+            foreach ($headings as $heading) {
+                if ($heading['line'] > $start) {
+                    $end = $heading['line'];
+                    break;
+                }
             }
+
+            $article = implode("\n", array_slice($lines, $start, $end - $start));
+            $article = preg_replace('/\[([^\]\r\n]+)\]\([^)\r\n]+\)/u', '$1', $article) ?? $article;
+            $article = str_replace('\\-', '-', $article);
+            $article = preg_replace('/[ \t]+/u', ' ', $article) ?? $article;
+            $article = preg_replace('/[ \t]*\n[ \t]*/u', "\n", $article) ?? $article;
+            $article = preg_replace('/\n{3,}/u', "\n\n", $article) ?? $article;
+            $article = preg_replace('/^[\s\p{Cf}]+/u', '', $article) ?? $article;
+            $article = trim($article);
+
+            $context = $selectedHeading['section_context'];
+            $normalizedContext = is_string($context)
+                ? str_replace(['ي', 'ك'], ['ی', 'ک'], $context)
+                : '';
+            if (is_string($context) && preg_match('/منسوخ(?:ه)?|اصلاحی|الحاقی|جایگزین/u', $normalizedContext) === 1) {
+                $article = 'بخش مرتبط در منبع رسمی: ' . $context . "\n" . $article;
+            }
+
+            $length = mb_strlen($article, 'UTF-8');
+            if ($length < 12 || $length > 50000) {
+                throw new RuntimeException('The extracted snapshot article length failed validation.');
+            }
+            $articles[] = $article;
         }
 
-        $article = implode("\n", array_slice($lines, $start, $end - $start));
-        $article = preg_replace('/\[([^\]\r\n]+)\]\([^)\r\n]+\)/u', '$1', $article) ?? $article;
-        $article = str_replace('\\-', '-', $article);
-        $article = preg_replace('/[ \t]+/u', ' ', $article) ?? $article;
-        $article = preg_replace('/[ \t]*\n[ \t]*/u', "\n", $article) ?? $article;
-        $article = preg_replace('/\n{3,}/u', "\n\n", $article) ?? $article;
-        $article = preg_replace('/^[\s\p{Cf}]+/u', '', $article) ?? $article;
-        $article = trim($article);
-
-        $length = mb_strlen($article, 'UTF-8');
-        if ($length < 12 || $length > 50000) {
-            throw new RuntimeException('The extracted snapshot article length failed validation.');
+        if (count($articles) > 1) {
+            array_unshift(
+                $articles,
+                'توجه: این شناسه در منبع رسمی چند سرعنوان دارد. همهٔ بخش‌های دقیقاً منطبق، جداگانه و با برچسب خود منبع آمده‌اند؛ نسخهٔ جاری حدس زده نشده است.'
+            );
         }
 
-        return $article;
+        $result = implode("\n\n────────────────\n\n", $articles);
+        if (mb_strlen($result, 'UTF-8') > 150000) {
+            throw new RuntimeException('The combined official article versions exceed the safe length limit.');
+        }
+
+        return $result;
     }
 
     /** Split text without cutting a UTF-8 character; count Telegram UTF-16 units. */
@@ -303,10 +366,11 @@ final class DirectTaxLaw
         return $chunks;
     }
 
-    private function articlePath(int $number): string
+    private function articlePath(int $number, bool $isRepeated = false): string
     {
         return rtrim($this->articlesDirectory, DIRECTORY_SEPARATOR)
-            . DIRECTORY_SEPARATOR . 'article-' . $number . '.json';
+            . DIRECTORY_SEPARATOR . 'article-' . $number
+            . ($isRepeated ? '-mokarrar' : '') . '.json';
     }
 
     private function sourceArchivePath(): string
@@ -315,13 +379,16 @@ final class DirectTaxLaw
             . DIRECTORY_SEPARATOR . 'source.md';
     }
 
-    /** @return array{article_number:int,text:string,source:string,source_url:string,retrieved_at:string} */
-    private function readArticle(string $path, int $number): array
+    /** @return array{article_number:int,is_repeated:bool,text:string,source:string,source_url:string,retrieved_at:string} */
+    private function readArticle(string $path, int $number, bool $isRepeated = false): array
     {
         $raw = file_get_contents($path);
         $record = is_string($raw) ? json_decode($raw, true) : null;
+        $cachedRepeated = is_array($record) ? ($record['is_repeated'] ?? false) : false;
         if (!is_array($record)
             || ($record['article_number'] ?? null) !== $number
+            || !is_bool($cachedRepeated)
+            || $cachedRepeated !== $isRepeated
             || !is_string($record['text'] ?? null)
             || trim($record['text']) === ''
             || ($record['source_url'] ?? null) !== self::SOURCE_URL
@@ -332,6 +399,7 @@ final class DirectTaxLaw
 
         return [
             'article_number' => $number,
+            'is_repeated' => $isRepeated,
             'text' => $record['text'],
             'source' => is_string($record['source'] ?? null) ? $record['source'] : self::SOURCE_NAME,
             'source_url' => self::SOURCE_URL,
@@ -339,7 +407,7 @@ final class DirectTaxLaw
         ];
     }
 
-    /** @param array{article_number:int,text:string,source:string,source_url:string,retrieved_at:string} $record */
+    /** @param array{article_number:int,is_repeated:bool,text:string,source:string,source_url:string,retrieved_at:string} $record */
     private function writeArticle(string $path, array $record): void
     {
         if (!is_dir($this->articlesDirectory)

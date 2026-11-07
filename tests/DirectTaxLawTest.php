@@ -20,6 +20,7 @@ $cases = [
     ['در متن م ۴۲ ق م م آمده است', 42],
     ['در متن م ٤٢ ق م م آمده است', 42],
     ['تست ماده ۱۰ ق م م تست', 10],
+    ['م 40 مکرر ق م م', 40],
     ['مادهٔ ۱۰ ق م م', 10],
     ['تست ماده ۱ ق م م تست', 1],
     ['ماده 186 ق م م', 186],
@@ -32,6 +33,19 @@ $cases = [
 ];
 foreach ($cases as [$input, $expected]) {
     lawAssert(DirectTaxLaw::requestedArticle($input) === $expected, 'request parser mismatch: ' . $input);
+}
+
+$identifierCases = [
+    ['در متن م ۲۰ ق م م', ['number' => 20, 'is_repeated' => false]],
+    ['تست ماده 40 مکرر ق م م', ['number' => 40, 'is_repeated' => true]],
+    ['مادهٔ ٤٠ مكرر ق م م', ['number' => 40, 'is_repeated' => true]],
+    ['م 1 ق م م و م 2 مکرر ق م م', null],
+];
+foreach ($identifierCases as [$input, $expected]) {
+    lawAssert(
+        DirectTaxLaw::requestedArticleIdentifier($input) === $expected,
+        'article identifier parser mismatch: ' . $input
+    );
 }
 
 foreach (['creator', 'administrator'] as $status) {
@@ -96,14 +110,36 @@ lawAssert(str_contains($snapshotRepository->getArticle(20)['text'], 'منسوخ�
 lawAssert(str_contains($snapshotRepository->getArticle(30)['text'], 'منسوخه'), 'وضعیت منسوخ مادهٔ ۳۰ حفظ نشد');
 lawAssert($snapshotFetchCount === 0, 'برای مواد موجود در snapshot نباید درخواست شبکه شود');
 
-$ambiguousArticleRejected = false;
-try {
-    $snapshotRepository->getArticle(40);
-} catch (RuntimeException) {
-    $ambiguousArticleRejected = true;
-}
-lawAssert($ambiguousArticleRejected, 'مادهٔ دارای چند سرعنوان مبهم نباید حدس زده شود');
-lawAssert($snapshotFetchCount === 0, 'مادهٔ مبهم نباید باعث درخواست شبکه شود');
+$article3 = $snapshotRepository->getArticle(3);
+lawAssert(is_array($article3), 'مادهٔ ۳ دارای چند سرعنوان باید بدون خطای دسترسی استخراج شود');
+lawAssert(str_contains($article3['text'], 'منسوخه'), 'وضعیت فصل منسوخ مادهٔ ۳ حفظ نشد');
+lawAssert(str_contains($article3['text'], 'چند سرعنوان'), 'ابهام نسخه‌های مادهٔ ۳ به کاربر اعلام نمی‌شود');
+
+$article40 = $snapshotRepository->getArticle(40);
+lawAssert(is_array($article40), 'مادهٔ ۴۰ دارای چند سرعنوان باید قابل دریافت باشد');
+lawAssert(str_contains($article40['text'], 'منسوخه'), 'برچسب منسوخی مادهٔ ۴۰ حفظ نشد');
+$article40TextNormalized = str_replace(['ي', 'ك'], ['ی', 'ک'], $article40['text']);
+lawAssert(str_contains($article40TextNormalized, 'اصلاحی'), 'برچسب اصلاح مادهٔ ۴۰ حفظ نشد');
+lawAssert(str_contains($article40['text'], 'چند سرعنوان'), 'چند نسخهٔ مادهٔ ۴۰ جداگانه اعلام نشد');
+
+$repeated40 = $snapshotRepository->getArticle(40, true);
+lawAssert(is_array($repeated40), 'مادهٔ ۴۰ مکرر از مادهٔ ۴۰ پایه جدا نشده است');
+lawAssert($repeated40['is_repeated'], 'شناسهٔ مادهٔ مکرر در cache ثبت نشد');
+$repeated40TextNormalized = str_replace(['ي', 'ك'], ['ی', 'ک'], $repeated40['text']);
+lawAssert(str_contains($repeated40TextNormalized, 'ماده 40 مکرر'), 'سرعنوان مادهٔ ۴۰ مکرر حفظ نشد');
+lawAssert(is_file($snapshotRoot . '/articles/article-40-mokarrar.json'), 'cache مادهٔ مکرر جداگانه ساخته نشد');
+
+$base251 = $snapshotRepository->getArticle(251);
+lawAssert(is_array($base251), 'مادهٔ پایهٔ ۲۵۱ از مادهٔ ۲۵۱ مکرر جدا نشده است');
+$repeated251 = $snapshotRepository->getArticle(251, true);
+lawAssert(is_array($repeated251), 'مادهٔ ۲۵۱ مکرر در نسخهٔ رسمی پیدا نشد');
+lawAssert(is_file($snapshotRoot . '/articles/article-251.json'), 'cache مادهٔ پایهٔ ۲۵۱ ساخته نشد');
+lawAssert(is_file($snapshotRoot . '/articles/article-251-mokarrar.json'), 'cache مادهٔ ۲۵۱ مکرر جداگانه ساخته نشد');
+$missing98 = $snapshotRepository->getArticle(98);
+lawAssert($missing98 === null, 'شمارهٔ بدون سرعنوان نباید با متن ساختگی یا دریافت زنده پاسخ داده شود');
+lawAssert($snapshotFetchCount === 0, 'برای سرعنوان ناموجود در snapshot نباید منبع زنده فراخوانی شود');
+
+lawAssert($snapshotFetchCount === 0, 'استخراج نسخه‌های رسمی نباید درخواست شبکه ایجاد کند');
 
 unlink($snapshotRoot . '/source.md');
 $snapshotCacheHit = $snapshotRepository->getArticle(18);
@@ -113,6 +149,35 @@ foreach (glob($snapshotRoot . '/articles/*') ?: [] as $file) {
 }
 @rmdir($snapshotRoot . '/articles');
 @rmdir($snapshotRoot);
+
+$cacheOnlyRoot = sys_get_temp_dir() . '/accmeta-direct-tax-cache-only-' . bin2hex(random_bytes(5));
+mkdir($cacheOnlyRoot . '/articles', 0775, true);
+$productionArticleFiles = glob(__DIR__ . '/../data/laws/direct-taxes/articles/article-*.json') ?: [];
+foreach ($productionArticleFiles as $file) {
+    lawAssert(copy($file, $cacheOnlyRoot . '/articles/' . basename($file)), 'فایل cache برای آزمون کپی نشد');
+}
+$cacheOnlyFetchCount = 0;
+$cacheOnlyRepository = new DirectTaxLaw($cacheOnlyRoot . '/articles', static function () use (&$cacheOnlyFetchCount): array {
+    $cacheOnlyFetchCount++;
+    throw new RuntimeException('برای cache آماده‌شده نباید شبکه فراخوانی شود.');
+});
+foreach ($productionArticleFiles as $file) {
+    if (preg_match('/^article-([0-9]+)(-mokarrar)?\.json$/', basename($file), $match) !== 1) {
+        lawAssert(false, 'نام یکی از فایل‌های cache با الگوی شناسهٔ قانون هماهنگ نیست');
+    }
+    $number = (int) $match[1];
+    $isRepeated = !empty($match[2]);
+    $cachedRecord = $cacheOnlyRepository->getArticle($number, $isRepeated);
+    lawAssert(is_array($cachedRecord), 'فایل cache مادهٔ ' . $number . ' قابل خواندن نیست');
+    lawAssert($cachedRecord['is_repeated'] === $isRepeated, 'نوع شناسه در فایل cache نادرست است');
+}
+lawAssert(count($productionArticleFiles) === 286, 'آرشیو باید ۲۷۸ مادهٔ پایه و ۸ شناسهٔ مکرر داشته باشد');
+lawAssert($cacheOnlyFetchCount === 0, 'خواندن cache آماده‌شده نباید به شبکه وابسته باشد');
+foreach (glob($cacheOnlyRoot . '/articles/*') ?: [] as $file) {
+    @unlink($file);
+}
+@rmdir($cacheOnlyRoot . '/articles');
+@rmdir($cacheOnlyRoot);
 
 $blockedDirectory = $temporary . '-blocked';
 $blockedRepository = new DirectTaxLaw($blockedDirectory, static fn (string $url): array => [

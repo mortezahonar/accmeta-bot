@@ -442,10 +442,12 @@ function handleDirectTaxLawMessage(array $message): bool
         return false;
     }
 
-    $articleNumber = DirectTaxLaw::requestedArticle($text);
-    if ($articleNumber === null) {
+    $articleRequest = DirectTaxLaw::requestedArticleIdentifier($text);
+    if ($articleRequest === null) {
         return false;
     }
+    $articleNumber = $articleRequest['number'];
+    $isRepeated = $articleRequest['is_repeated'];
 
     $chatId = (string) ($chat['id'] ?? '');
     if ($chatId === '') {
@@ -476,7 +478,7 @@ function handleDirectTaxLawMessage(array $message): bool
     }
 
     try {
-        $article = $directTaxLaw->getArticle($articleNumber);
+        $article = $directTaxLaw->getArticle($articleNumber, $isRepeated);
     } catch (Throwable) {
         $log('direct-tax lookup failed: official source or local archive unavailable');
         try {
@@ -492,11 +494,12 @@ function handleDirectTaxLawMessage(array $message): bool
     }
 
     if ($article === null) {
-        $log('direct-tax lookup: requested article was not unambiguously found');
+        $log('direct-tax lookup: exact article identifier is not present in the committed official source');
+        $requestedName = 'مادهٔ ' . Persian::faDigits((string) $articleNumber) . ($isRepeated ? ' مکرر' : '');
         try {
             $telegram->sendMessage(
                 $chatId,
-                Persian::rtl('شمارهٔ ماده در متن رسمی به‌صورت روشن پیدا نشد؛ چیزی ذخیره یا ارسال نشد.'),
+                Persian::rtl('سرعنوان دقیق «' . $requestedName . '» در نسخهٔ رسمی ذخیره‌شده پیدا نشد. متن حدسی ارسال نشد.\nمنبع رسمی: ' . DirectTaxLaw::SOURCE_URL),
                 isset($message['message_thread_id']) ? (int) $message['message_thread_id'] : null
             );
         } catch (Throwable) {
@@ -511,13 +514,17 @@ function handleDirectTaxLawMessage(array $message): bool
 
     try {
         foreach ($parts as $index => $part) {
-            $partLabel = 'مادهٔ ' . Persian::faDigits((string) $articleNumber) . ' قانون مالیات‌های مستقیم';
+            $partLabel = 'مادهٔ ' . Persian::faDigits((string) $articleNumber)
+                . ($isRepeated ? ' مکرر' : '') . ' قانون مالیات‌های مستقیم';
             if ($partCount > 1) {
                 $partLabel .= ' — بخش ' . Persian::faDigits((string) ($index + 1)) . ' از ' . Persian::faDigits((string) $partCount);
             }
             $body = $partLabel . "\n" . $part;
             if ($index === $partCount - 1) {
                 $body .= "\n\nمنبع رسمی: " . $article['source_url'];
+                if (is_string($article['retrieved_at'] ?? null) && $article['retrieved_at'] !== '') {
+                    $body .= "\nتاریخ دریافت نسخه از منبع: " . Persian::faDigits($article['retrieved_at']);
+                }
             }
 
             TelegramRateLimit::call(
@@ -529,7 +536,8 @@ function handleDirectTaxLawMessage(array $message): bool
                 sleep(1);
             }
         }
-        $log('direct-tax article served from local archive; article=' . $articleNumber . ' parts=' . $partCount);
+        $log('direct-tax article served from local archive; article=' . $articleNumber
+            . ($isRepeated ? '-mokarrar' : '') . ' parts=' . $partCount);
     } catch (Throwable) {
         $log('direct-tax article delivery failed; details suppressed');
     }
