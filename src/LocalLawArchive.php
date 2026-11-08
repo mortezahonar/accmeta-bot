@@ -5,7 +5,7 @@ declare(strict_types=1);
 /** Local-first archive for verified Qavanin law snapshots; it never fetches the network. */
 final class LocalLawArchive
 {
-    private const SOURCE_NAME = 'سامانه ملی قوانین و مقررات جمهوری اسلامی ایران (قاونین)';
+    private const SOURCE_NAME = 'سامانه ملی قوانین و مقررات جمهوری اسلامی ایران';
 
     /** @var array<string, array{title:string,source_url:string,retrieved_at:string,max_article:int}> */
     private const LAWS = [
